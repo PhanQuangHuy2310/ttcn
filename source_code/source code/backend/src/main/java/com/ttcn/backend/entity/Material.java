@@ -28,7 +28,7 @@ public class Material {
     private String fileUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "material_type")
+    @Column(name = "material_type")
     private MaterialType type;
 
     private Integer size;

@@ -1,6 +1,6 @@
 package com.ttcn.backend.controller;
 
-import com.ttcn.backend.dto.UserDto;
+import com.ttcn.backend.dto.UserDTO;
 import com.ttcn.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,27 +18,27 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<UserDto> createUser(@RequestBody UserDto userDto) {
-        UserDto savedUser = userService.createUser(userDto);
+    public ResponseEntity<UserDTO> createUser(@RequestBody UserDTO userDto) {
+        UserDTO savedUser = userService.createUser(userDto);
         return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable("id") UUID userId) {
-        UserDto userDto = userService.getUserById(userId);
+    public ResponseEntity<UserDTO> getUserById(@PathVariable("id") UUID userId) {
+        UserDTO userDto = userService.getUserById(userId);
         return ResponseEntity.ok(userDto);
     }
 
     @GetMapping
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        List<UserDto> users = userService.getAllUsers();
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        List<UserDTO> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UserDto> updateUser(@PathVariable("id") UUID userId,
-                                              @RequestBody UserDto userDto) {
-        UserDto updatedUser = userService.updateUser(userId, userDto);
+    public ResponseEntity<UserDTO> updateUser(@PathVariable("id") UUID userId,
+                                              @RequestBody UserDTO userDto) {
+        UserDTO updatedUser = userService.updateUser(userId, userDto);
         return ResponseEntity.ok(updatedUser);
     }
 

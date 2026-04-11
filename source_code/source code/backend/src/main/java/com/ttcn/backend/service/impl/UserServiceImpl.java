@@ -1,6 +1,7 @@
 package com.ttcn.backend.service.impl;
 
-import com.ttcn.backend.dto.UserDto;
+import com.ttcn.backend.entity.Role;
+import com.ttcn.backend.dto.UserDTO;
 import com.ttcn.backend.entity.User;
 import com.ttcn.backend.exception.ResourceNotFoundException;
 import com.ttcn.backend.repository.UserRepository;
@@ -21,41 +22,42 @@ public class UserServiceImpl implements UserService {
     private final EmailService emailService;
 
     @Override
-    public UserDto createUser(UserDto userDto) {
+    public UserDTO createUser(UserDTO userDto) {
         User user = mapToEntity(userDto);
         User savedUser = userRepository.save(user);
-
-        // Gửi email bất đồng bộ
+        // Async — safe even if mail server is not configured (caught in EmailServiceImpl)
         emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName());
-
         return mapToDto(savedUser);
     }
 
     @Override
-    public UserDto getUserById(UUID id) {
+    public UserDTO getUserById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return mapToDto(user);
     }
 
     @Override
-    public List<UserDto> getAllUsers() {
+    public List<UserDTO> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public UserDto updateUser(UUID id, UserDto userDto) {
+    public UserDTO updateUser(UUID id, UserDTO userDto) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        
+
         user.setFullName(userDto.getFullName());
         user.setEmail(userDto.getEmail());
-        user.setRole(userDto.getRole());
+        if (userDto.getRole() != null && !userDto.getRole().isBlank()) {
+            user.setRole(Role.valueOf(userDto.getRole()));
+        }
         user.setStudentId(userDto.getStudentId());
-        user.setLecturerCode(userDto.getLecturerCode());
-        
+        user.setAvatarUrl(userDto.getAvatarUrl());
+        user.setPhoneNumber(userDto.getPhoneNumber());
+
         User updatedUser = userRepository.save(user);
         return mapToDto(updatedUser);
     }
@@ -68,26 +70,31 @@ public class UserServiceImpl implements UserService {
         userRepository.deleteById(id);
     }
 
-    private UserDto mapToDto(User user) {
-        return UserDto.builder()
-                .id(user.getId())
+    private UserDTO mapToDto(User user) {
+        return UserDTO.builder()
+                .id(user.getUserId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
-                .role(user.getRole())
+                .role(user.getRole() != null ? user.getRole().name() : null)
                 .studentId(user.getStudentId())
-                .lecturerCode(user.getLecturerCode())
-                .createdAt(user.getCreatedAt())
+                .avatarUrl(user.getAvatarUrl())
+                .phoneNumber(user.getPhoneNumber())
                 .build();
     }
 
-    private User mapToEntity(UserDto dto) {
+    private User mapToEntity(UserDTO dto) {
+        Role role = null;
+        if (dto.getRole() != null && !dto.getRole().isBlank()) {
+            role = Role.valueOf(dto.getRole());
+        }
         return User.builder()
-                .id(dto.getId())
+                .userId(dto.getId())
                 .fullName(dto.getFullName())
                 .email(dto.getEmail())
-                .role(dto.getRole())
+                .role(role)
                 .studentId(dto.getStudentId())
-                .lecturerCode(dto.getLecturerCode())
+                .avatarUrl(dto.getAvatarUrl())
+                .phoneNumber(dto.getPhoneNumber())
                 .build();
     }
 }

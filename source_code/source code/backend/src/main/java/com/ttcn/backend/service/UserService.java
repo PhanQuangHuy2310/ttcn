@@ -1,13 +1,13 @@
 package com.ttcn.backend.service;
 
-import com.ttcn.backend.dto.UserDto;
+import com.ttcn.backend.dto.UserDTO;
 import java.util.List;
 import java.util.UUID;
 
 public interface UserService {
-    UserDto createUser(UserDto userDto);
-    UserDto getUserById(UUID id);
-    List<UserDto> getAllUsers();
-    UserDto updateUser(UUID id, UserDto userDto);
+    UserDTO createUser(UserDTO userDto);
+    UserDTO getUserById(UUID id);
+    List<UserDTO> getAllUsers();
+    UserDTO updateUser(UUID id, UserDTO userDto);
     void deleteUser(UUID id);
 }

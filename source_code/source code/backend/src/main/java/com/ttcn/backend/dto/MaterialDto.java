@@ -8,7 +8,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MaterialDto {
+public class MaterialDTO {
     private UUID id;
     private UUID lessonId;
     private String title;

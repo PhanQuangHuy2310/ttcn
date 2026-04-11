@@ -5,7 +5,7 @@ import com.ttcn.backend.dto.UserDTO;
 import com.ttcn.backend.entity.Course;
 import com.ttcn.backend.entity.Enrollment;
 import com.ttcn.backend.entity.User;
-import com.ttcn.backend.entity.UserRole;
+import com.ttcn.backend.entity.Role;
 import com.ttcn.backend.exception.ResourceNotFoundException;
 import com.ttcn.backend.repository.CourseRepository;
 import com.ttcn.backend.repository.EnrollmentRepository;
@@ -55,7 +55,7 @@ public class CourseServiceImpl implements CourseService {
             instructor = userRepository.findById(instructorId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", instructorId));
             
-            if (instructor.getRole() != UserRole.TEACHER) {
+            if (instructor.getRole() != Role.TEACHER) {
                 throw new RuntimeException("Only instructors can create courses");
             }
         }
@@ -66,7 +66,7 @@ public class CourseServiceImpl implements CourseService {
                 .syllabus(courseDTO.getSyllabus())
                 .semester(courseDTO.getSemester())
                 .thumbnailUrl(courseDTO.getThumbnailUrl())
-                .lecturer(instructor)
+                .teacher(instructor)
                 .build();
                 
         Course savedCourse = courseRepository.save(course);
@@ -81,7 +81,7 @@ public class CourseServiceImpl implements CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", id));
                 
         // Check ownership
-        if (course.getLecturer() == null || !course.getLecturer().getUserId().equals(currentUserId)) {
+        if (course.getTeacher() == null || !course.getTeacher().getUserId().equals(currentUserId)) {
             throw new RuntimeException("Forbidden: You are not the owner of this course");
         }
         
@@ -103,7 +103,7 @@ public class CourseServiceImpl implements CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", id));
                 
         // Check ownership
-        if (course.getLecturer() == null || !course.getLecturer().getUserId().equals(currentUserId)) {
+        if (course.getTeacher() == null || !course.getTeacher().getUserId().equals(currentUserId)) {
             throw new RuntimeException("Forbidden: You are not the owner of this course");
         }
         courseRepository.delete(course);
@@ -115,7 +115,7 @@ public class CourseServiceImpl implements CourseService {
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", studentId));
         
-        if (student.getRole() != UserRole.STUDENT) {
+        if (student.getRole() != Role.STUDENT) {
             throw new RuntimeException("Only students can enroll in courses");
         }
 
@@ -136,10 +136,10 @@ public class CourseServiceImpl implements CourseService {
     }
 
     private CourseDTO mapToDTO(Course course) {
-        UserDTO lecturerDTO = null;
-        if (course.getLecturer() != null) {
-            User l = course.getLecturer();
-            lecturerDTO = UserDTO.builder()
+        UserDTO teacherDTO = null;
+        if (course.getTeacher() != null) {
+            User l = course.getTeacher();
+            teacherDTO = UserDTO.builder()
                     .id(l.getUserId())
                     .fullName(l.getFullName())
                     .email(l.getEmail())
@@ -158,7 +158,7 @@ public class CourseServiceImpl implements CourseService {
                 .semester(course.getSemester())
                 .thumbnailUrl(course.getThumbnailUrl())
                 .createdAt(course.getCreatedAt())
-                .lecturer(lecturerDTO)
+                .teacher(teacherDTO)
                 .build();
     }
 }

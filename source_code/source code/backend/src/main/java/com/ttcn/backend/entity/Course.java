@@ -18,8 +18,8 @@ public class Course {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lecturer_id")
-    private User lecturer;
+    @JoinColumn(name = "teacher_id")
+    private User teacher;
 
     @Column(nullable = false, unique = true)
     private String code;
@@ -27,7 +27,8 @@ public class Course {
     @Column(nullable = false)
     private String name;
 
-    @Column(columnDefinition = "jsonb")
+    // TEXT instead of jsonb — avoids dialect-specific DDL errors with ddl-auto=update
+    @Column(columnDefinition = "TEXT")
     private String syllabus;
 
     private String semester;

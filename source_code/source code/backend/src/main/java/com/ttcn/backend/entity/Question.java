@@ -28,7 +28,8 @@ public class Question {
 
     private Double points;
 
-    @Column(columnDefinition = "jsonb")
+    // TEXT instead of jsonb
+    @Column(columnDefinition = "TEXT")
     private String options;
 
     @Column(name = "correct_answer")

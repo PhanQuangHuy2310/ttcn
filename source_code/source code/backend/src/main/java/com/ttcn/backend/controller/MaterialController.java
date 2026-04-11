@@ -1,6 +1,6 @@
 package com.ttcn.backend.controller;
 
-import com.ttcn.backend.dto.MaterialDto;
+import com.ttcn.backend.dto.MaterialDTO;
 import com.ttcn.backend.service.MaterialService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,20 +18,20 @@ public class MaterialController {
     private final MaterialService materialService;
 
     @PostMapping
-    public ResponseEntity<MaterialDto> createMaterial(@RequestBody MaterialDto materialDto) {
-        MaterialDto savedMaterial = materialService.createMaterial(materialDto);
+    public ResponseEntity<MaterialDTO> createMaterial(@RequestBody MaterialDTO materialDto) {
+        MaterialDTO savedMaterial = materialService.createMaterial(materialDto);
         return new ResponseEntity<>(savedMaterial, HttpStatus.CREATED);
     }
 
     @GetMapping("/lesson/{lessonId}")
-    public ResponseEntity<List<MaterialDto>> getMaterialsByLesson(@PathVariable("lessonId") UUID lessonId) {
-        List<MaterialDto> materials = materialService.getMaterialsByLesson(lessonId);
+    public ResponseEntity<List<MaterialDTO>> getMaterialsByLesson(@PathVariable("lessonId") UUID lessonId) {
+        List<MaterialDTO> materials = materialService.getMaterialsByLesson(lessonId);
         return ResponseEntity.ok(materials);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MaterialDto> getMaterialById(@PathVariable("id") UUID id) {
-        MaterialDto materialDto = materialService.getMaterialById(id);
+    public ResponseEntity<MaterialDTO> getMaterialById(@PathVariable("id") UUID id) {
+        MaterialDTO materialDto = materialService.getMaterialById(id);
         return ResponseEntity.ok(materialDto);
     }
 

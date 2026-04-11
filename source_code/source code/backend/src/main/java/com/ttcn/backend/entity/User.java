@@ -23,8 +23,8 @@ public class User {
     private UUID userId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", columnDefinition = "user_role")
-    private UserRole role;
+    @Column(name = "role")
+    private Role role;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
@@ -51,7 +51,7 @@ public class User {
     private OffsetDateTime updatedAt;
 
     // One instructor can teach many courses
-    @OneToMany(mappedBy = "instructor", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "teacher", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Course> taughtCourses;

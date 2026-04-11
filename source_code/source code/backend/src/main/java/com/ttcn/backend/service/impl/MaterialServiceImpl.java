@@ -1,6 +1,6 @@
 package com.ttcn.backend.service.impl;
 
-import com.ttcn.backend.dto.MaterialDto;
+import com.ttcn.backend.dto.MaterialDTO;
 import com.ttcn.backend.entity.Lesson;
 import com.ttcn.backend.entity.Material;
 import com.ttcn.backend.exception.ResourceNotFoundException;
@@ -22,7 +22,7 @@ public class MaterialServiceImpl implements MaterialService {
     private final LessonRepository lessonRepository;
 
     @Override
-    public MaterialDto createMaterial(MaterialDto materialDto) {
+    public MaterialDTO createMaterial(MaterialDTO materialDto) {
         Lesson lesson = lessonRepository.findById(materialDto.getLessonId())
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + materialDto.getLessonId()));
         
@@ -32,14 +32,14 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
-    public List<MaterialDto> getMaterialsByLesson(UUID lessonId) {
+    public List<MaterialDTO> getMaterialsByLesson(UUID lessonId) {
         return materialRepository.findByLessonId(lessonId).stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public MaterialDto getMaterialById(UUID id) {
+    public MaterialDTO getMaterialById(UUID id) {
         Material material = materialRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Material not found with id: " + id));
         return mapToDto(material);
@@ -53,8 +53,8 @@ public class MaterialServiceImpl implements MaterialService {
         materialRepository.deleteById(id);
     }
 
-    private MaterialDto mapToDto(Material material) {
-        return MaterialDto.builder()
+    private MaterialDTO mapToDto(Material material) {
+        return MaterialDTO.builder()
                 .id(material.getId())
                 .lessonId(material.getLesson() != null ? material.getLesson().getId() : null)
                 .title(material.getTitle())
@@ -64,7 +64,7 @@ public class MaterialServiceImpl implements MaterialService {
                 .build();
     }
 
-    private Material mapToEntity(MaterialDto dto, Lesson lesson) {
+    private Material mapToEntity(MaterialDTO dto, Lesson lesson) {
         return Material.builder()
                 .id(dto.getId())
                 .lesson(lesson)

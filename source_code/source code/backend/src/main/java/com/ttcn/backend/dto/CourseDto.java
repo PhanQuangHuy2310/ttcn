@@ -28,6 +28,6 @@ public class CourseDTO {
     @NotBlank(message = "Semester is mandatory")
     private String semester;
     private String thumbnailUrl;
-    private UserDTO lecturer;
+    private UserDTO teacher;
     private LocalDateTime createdAt;
 }
