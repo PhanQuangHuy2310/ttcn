@@ -31,20 +31,25 @@ spring:
       max-request-size: 10MB
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/ttcn}
+    # URL lấy từ Supabase (chế độ Transaction Mode hoặc Session Mode)
+    url: ${DB_URL:jdbc:postgresql://db.oxqeacydayefsvtsqams.supabase.co:5432/postgres?sslmode=require}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:dangduy2005}
+    password: "DangDuy2005@"
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: update 
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Chuỗi Secret Key lấy từ Settings > API > JWT Secret
+          issuer-uri: https://oxqeacydayefsvtsqams.supabase.co/auth/v1
 aws:
   s3:
     endpoint: ${AWS_S3_ENDPOINT:}
