@@ -1,128 +1,191 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
-// ===== CONFIG =====
+// ================= CONFIG =================
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
-// ===== UTILS =====
-const HO = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan'];
-const TEN = ['Minh', 'Tuấn', 'Hùng', 'Dũng', 'Long', 'Khải', 'Quân', 'Khoa', 'Đức', 'Bảo'];
-const DEM = ['Văn', 'Đức', 'Công', 'Quốc', 'Hữu', 'Trung'];
+// ================= CONFLICT MAP =================
+const TABLE_CONFLICT = {
+  courses: 'code',
+  classes: 'code',
+  student_classes: 'class_id,student_id',
+  submissions: 'exam_id,student_id',
+  exams: 'id'
+};
+
+// ================= RETRY =================
+async function retry(fn, retries = 3, delay = 500) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      await new Promise(r => setTimeout(r, delay * (i + 1)));
+    }
+  }
+}
+
+// ================= SAFE WRAPPER =================
+async function safe(label, fn) {
+  try {
+    return await retry(fn);
+  } catch (e) {
+    console.log(`❌ ${label}:`, e.message);
+    return null;
+  }
+}
+
+// ================= UPSERT SAFE =================
+async function upsertSafe(table, data) {
+  const conflict = TABLE_CONFLICT[table] || 'id';
+
+  return await retry(async () => {
+    const { data: result, error } = await supabase
+      .from(table)
+      .upsert(data, { onConflict: conflict })
+      .select();
+
+    if (error) throw error;
+    return result;
+  });
+}
+
+// ================= BATCH UPSERT =================
+async function batchUpsert(table, rows) {
+  if (!rows.length) return;
+
+  const conflict = TABLE_CONFLICT[table] || 'id';
+
+  return await retry(async () => {
+    const { error } = await supabase
+      .from(table)
+      .upsert(rows, { onConflict: conflict });
+
+    if (error) throw error;
+  });
+}
+
+// ================= NAME GENERATOR =================
+const HO = ['Nguyen', 'Tran', 'Le', 'Pham', 'Hoang', 'Huynh', 'Phan'];
+const TEN = ['Minh', 'Tuan', 'Hung', 'Dung', 'Long', 'Khai', 'Quan', 'Khoa', 'Duc', 'Bao'];
+const DEM = ['Van', 'Duc', 'Cong', 'Quoc', 'Huu', 'Trung'];
 
 const rng = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const pick = arr => arr[rng(0, arr.length - 1)];
 
 const genName = () => `${pick(HO)} ${pick(DEM)} ${pick(TEN)}`;
 
-function removeVietnameseTones(str) {
-  return str
+const normalize = str =>
+  str.toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D');
+    .replace(/[^a-z0-9\s]/g, '');
+
+const genEmail = (name, suffix) =>
+  normalize(name).replace(/\s+/g, '.') + `.${suffix}@dhdedu.edu.vn`;
+
+// ================= USER =================
+async function syncProfile(id, email, full_name, role) {
+  await safe(`syncProfile ${email}`, async () => {
+    const { error } = await supabase.from('users').upsert({
+      id,
+      email,
+      full_name,
+      role
+    }, {
+      onConflict: 'id'
+    });
+
+    if (error) throw error;
+  });
 }
 
-function genEmail(name, suffix) {
-  const clean = removeVietnameseTones(name)
-    .toLowerCase()
-    .replace(/\s+/g, '.');
-
-  return `${clean}.${suffix}@dhdedu.edu.vn`;
-}
-
-const pickN = (arr, n) => arr.sort(() => 0.5 - Math.random()).slice(0, n);
-
-// ===== SAFE WRAPPERS =====
-async function safeCreateUser(payload) {
-  try {
-    const { data, error } = await supabase.auth.admin.createUser(payload);
+async function createUserSafe({ email, password, meta, role }) {
+  return await safe(`createUser ${email}`, async () => {
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: meta
+    });
 
     if (error) {
-      if (error.message?.includes('already')) return null;
-      console.error('❌ createUser:', payload.email, error.message);
-      return null;
+      if (error.message?.includes('already')) {
+        const { data: list } = await supabase.auth.admin.listUsers();
+        const found = list.users.find(u => u.email === email);
+        if (!found) return null;
+
+        await syncProfile(found.id, email, meta.full_name, role);
+        return found;
+      }
+      throw error;
     }
 
-    return data?.user || null;
-  } catch (e) {
-    console.error('❌ createUser crash:', e.message);
-    return null;
-  }
-}
-
-async function safeInsert(table, row) {
-  try {
-    const { data, error } = await supabase
-      .from(table)
-      .insert(row)
-      .select()
-      .single();
-
-    if (error || !data) {
-      console.error(`❌ insert ${table}:`, error?.message);
-      return null;
-    }
-
-    return data;
-  } catch (e) {
-    console.error(`❌ insert ${table} crash:`, e.message);
-    return null;
-  }
-}
-
-// ===== MAIN =====
-async function seed() {
-  console.log('🚀 START SEEDING (NO CRASH)...');
-
-  // ===== ADMIN =====
-  await safeCreateUser({
-    email: 'admin@dhdedu.edu.vn',
-    password: 'Admin@123456',
-    email_confirm: true,
-    user_metadata: { full_name: 'Admin', is_teacher: false }
+    await syncProfile(data.user.id, email, meta.full_name, role);
+    return data.user;
   });
+}
+
+// ================= MAIN =================
+async function seed() {
+  console.log('\n🚀 START SEEDING (PRODUCTION SAFE)\n');
 
   // ===== TEACHERS =====
   const teachers = [];
+
   for (let i = 1; i <= 5; i++) {
     const name = genName();
 
-    const user = await safeCreateUser({
-      email: genEmail(name, 'gv' + i),
+    const u = await createUserSafe({
+      email: genEmail(name, `gv${i}`),
       password: '123456',
-      email_confirm: true,
-      user_metadata: { full_name: name, is_teacher: true }
+      meta: { full_name: name, is_teacher: true },
+      role: 'TEACHER'
     });
 
-    if (user) teachers.push(user.id);
+    if (u) teachers.push(u.id);
   }
 
   console.log('👨‍🏫 Teachers:', teachers.length);
 
   // ===== STUDENTS =====
   const students = [];
+
   for (let i = 1; i <= 30; i++) {
     const name = genName();
 
-    const user = await safeCreateUser({
-      email: genEmail(name, 'sv' + i),
+    const u = await createUserSafe({
+      email: genEmail(name, `sv${i}`),
       password: '123456',
-      email_confirm: true,
-      user_metadata: { full_name: name }
+      meta: { full_name: name },
+      role: 'STUDENT'
     });
 
-    if (user) students.push(user.id);
+    if (u) students.push(u.id);
   }
 
   console.log('🎓 Students:', students.length);
 
+  if (!teachers.length || !students.length) {
+    console.log('❌ STOP: missing users');
+    return;
+  }
+
   // ===== COURSES =====
   const courses = [];
+
   for (let i = 0; i < teachers.length; i++) {
-    const course = await safeInsert('courses', {
+    const data = await upsertSafe('courses', {
       teacher_id: teachers[i],
       code: `C${i + 1}`,
       name: `Khóa học ${i + 1}`,
@@ -130,88 +193,87 @@ async function seed() {
       subject: 'Toán'
     });
 
-    if (course) courses.push(course);
+    if (data) courses.push(data[0]);
   }
 
   console.log('📚 Courses:', courses.length);
 
   // ===== CLASSES =====
   const classes = [];
+
   for (let i = 0; i < courses.length; i++) {
-    const cls = await safeInsert('classes', {
+    const data = await upsertSafe('classes', {
       course_id: courses[i].id,
       name: `Lớp ${i + 1}`,
       code: `L${i + 1}`,
       academic_year: '2024-2025'
     });
 
-    if (cls) classes.push(cls);
+    if (data) classes.push(data[0]);
   }
 
   console.log('🏫 Classes:', classes.length);
 
-  // ===== ENROLL =====
+  // ===== ENROLLMENT (BATCH) =====
   for (const cls of classes) {
-    const list = pickN(students, rng(10, 20));
+    const list = [...students]
+      .sort(() => 0.5 - Math.random())
+      .slice(0, rng(10, 20));
 
-    for (const sid of list) {
-      await safeInsert('student_classes', {
-        class_id: cls.id,
-        student_id: sid
-      });
-    }
+    const rows = list.map(student_id => ({
+      class_id: cls.id,
+      student_id
+    }));
+
+    await safe('enroll batch', async () =>
+      batchUpsert('student_classes', rows)
+    );
   }
 
   console.log('📋 Enrollment done');
 
   // ===== EXAMS =====
   const exams = [];
+
   for (const cls of classes) {
-    const exam = await safeInsert('exams', {
+    const data = await upsertSafe('exams', {
       course_id: cls.course_id,
       class_id: cls.id,
       title: 'Kiểm tra 1',
       duration: 60
     });
 
-    if (exam) exams.push(exam);
+    if (data) exams.push(data[0]);
   }
 
   console.log('📝 Exams:', exams.length);
 
-  // ===== SUBMISSIONS =====
+  // ===== SUBMISSIONS (BATCH) =====
   for (const exam of exams) {
-    const { data, error } = await supabase
+    const { data: enrolled } = await supabase
       .from('student_classes')
       .select('student_id')
       .eq('class_id', exam.class_id);
 
-    if (error || !data) {
-      console.error('❌ fetch enroll:', error?.message);
-      continue;
-    }
+    if (!enrolled) continue;
 
-    for (const e of data) {
+    const rows = enrolled.map(e => {
       const roll = Math.random();
 
-      let status = 'NOT_STARTED';
-      let score = null;
-
-      if (roll > 0.3) {
-        status = 'SUBMITTED';
-        score = (rng(50, 100) / 10).toFixed(1);
-      }
-
-      await safeInsert('submissions', {
+      return {
         exam_id: exam.id,
         student_id: e.student_id,
-        status,
-        score
-      });
-    }
+        status: roll > 0.3 ? 'SUBMITTED' : 'NOT_STARTED',
+        score: roll > 0.3 ? (rng(50, 100) / 10).toFixed(1) : null
+      };
+    });
+
+    await safe('submission batch', async () =>
+      batchUpsert('submissions', rows)
+    );
   }
 
-  console.log('✅ DONE SEEDING (SAFE)');
+  console.log('\n✅ SEED COMPLETE (IDEMPOTENT + PRODUCTION READY)');
 }
 
 seed();
