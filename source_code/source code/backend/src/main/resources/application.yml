@@ -1,18 +1,48 @@
 server:
   port: 8080
-  tomcat:
-    max-http-form-post-size: 2MB
 
 spring:
   application:
-    name: backend
+    name: dhdedu-system
 
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      max-lifetime: 580000
+      keepalive-time: 30000
+      connection-timeout: 30000
+      validation-timeout: 3000
+      maximum-pool-size: 5
+      minimum-idle: 1
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SUPABASE_URL}/auth/v1
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+  # Redis
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
 
+  # Mail
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
@@ -25,36 +55,32 @@ spring:
           starttls:
             enable: true
 
-  servlet:
-    multipart:
-      max-file-size: 5MB
-      max-request-size: 10MB
+# Logging
+logging:
+  level:
+    vn.dhdedu: DEBUG
+    org.hibernate.SQL: info
 
-  datasource:
-    # URL lấy từ Supabase (chế độ Transaction Mode hoặc Session Mode)
-    url: ${DB_URL:jdbc:postgresql://db.oxqeacydayefsvtsqams.supabase.co:5432/postgres?sslmode=require}
-    username: ${DB_USERNAME:postgres}
-    password: "DangDuy2005@"
-    driver-class-name: org.postgresql.Driver
+# Supabase
+supabase:
+  url: ${SUPABASE_URL}
+  key:
+    service-role-key: ${SUPABASE_SERVICE_KEY}
+  jwt:
+    secret: ${JWT_SECRET}
+  bucket:
+    name: SUPABASE_BUCKET:dhdedu-files
 
-  jpa:
-    hibernate:
-      ddl-auto: update 
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+# Upload local fallback
+upload:
+  dir: ${UPLOAD_DIR:uploads}
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Chuỗi Secret Key lấy từ Settings > API > JWT Secret
-          issuer-uri: https://oxqeacydayefsvtsqams.supabase.co/auth/v1
+# S3 (optional - không dùng thì disable)
 aws:
   s3:
-    endpoint: ${AWS_S3_ENDPOINT:}
-    access-key: ${AWS_ACCESS_KEY:}
-    secret-key: ${AWS_SECRET_KEY:}
-    bucket-name: ${AWS_S3_BUCKET:default-bucket}
-    region: ${AWS_REGION:ap-southeast-1}
     enabled: ${AWS_S3_ENABLED:false}
+    endpoint: ${AWS_S3_ENDPOINT:dummy}
+    access-key: ${AWS_ACCESS_KEY:dummy}
+    secret-key: ${AWS_SECRET_KEY:dummy}
+    bucket-name: ${AWS_S3_BUCKET:dummy}
+    region: ${AWS_REGION:ap-southeast-1}

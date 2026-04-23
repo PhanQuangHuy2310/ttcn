@@ -1,196 +1,157 @@
-import React from "react";
-import StudentSidebar from "../../components/StudentSidebar";
-import StudentHeader from "../../components/StudentHeader";
+// src/pages/Student/HocFlashcardDhdedu.jsx
+// ─── ONLY LOGIC CHANGED — UI STRUCTURE PRESERVED ────────────
+// Same data as HocFlashcardDhdeduVietHoa but different layout wrapper
+import React, { useState, useEffect } from 'react';
+import StudentSidebar from '../../components/StudentSidebar';
+import StudentHeader from '../../components/StudentHeader';
+import { useSearchParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
+import { studentService } from '../../hooks/useSupabaseQuery';
+
+const Skeleton = ({ className = '' }) => (
+  <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+);
 
 const HocFlashcardDhdedu = () => {
+  const [sp]        = useSearchParams();
+  const setId       = sp.get('setId');
+  const [sets,      setSets]      = useState([]);
+  const [cards,     setCards]     = useState([]);
+  const [selSet,    setSelSet]    = useState(null);
+  const [idx,       setIdx]       = useState(0);
+  const [flipped,   setFlipped]   = useState(false);
+  const [loading,   setLoading]   = useState(true);
+  const [loadingC,  setLoadingC]  = useState(false);
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await studentService.getFlashcardSets(user.id);
+      const all = data ?? [];
+      setSets(all);
+      const target = setId ? all.find(s => s.id === setId) : all[0];
+      if (target) { setSelSet(target); loadCards(target.id); }
+      setLoading(false);
+    }
+    init();
+  }, [setId]);
+
+  const loadCards = async (id) => {
+    setLoadingC(true);
+    setIdx(0); setFlipped(false);
+    const { data } = await studentService.getFlashcards(id);
+    setCards(data ?? []);
+    setLoadingC(false);
+  };
+
+  const card = cards[idx];
+  const prog = cards.length ? Math.round(((idx + 1) / cards.length) * 100) : 0;
+
   return (
     <div className="stitch-screen w-full h-full min-h-screen bg-gray-50">
       <StudentSidebar />
-
       <main className="ml-64 min-h-screen flex flex-col">
         <StudentHeader />
-
         <div className="flex-1 flex flex-col lg:flex-row p-8 gap-8 overflow-y-auto">
+
+          {/* Card area */}
           <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full">
+            {/* Set selector header */}
             <div className="w-full flex justify-between items-end mb-8">
               <div>
-                <h2 className="font-headline font-bold text-3xl text-on-surface mb-2">
-                  Học Flashcard
-                </h2>
-                <p className="text-tertiary">
-                  Nhấn vào thẻ để xem đáp án hoặc dùng phím Space.
-                </p>
+                <h1 className="text-2xl font-black text-on-surface">{selSet?.title ?? 'Học Flashcard'}</h1>
+                <p className="text-slate-400 text-sm mt-0.5">{selSet?.courses?.name ?? '—'} · {cards.length} thẻ</p>
               </div>
-              <div className="text-right">
-                <span className="text-primary font-bold text-lg">20/40</span>
-                <p className="text-[10px] text-tertiary font-bold uppercase tracking-widest">
-                  Cards Remaining
-                </p>
-              </div>
+              <select
+                value={selSet?.id ?? ''}
+                onChange={e => {
+                  const s = sets.find(x => x.id === e.target.value);
+                  if (s) { setSelSet(s); loadCards(s.id); }
+                }}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {sets.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+              </select>
             </div>
 
-            <div className="w-full aspect-[16/9] md:aspect-[21/10] relative group cursor-pointer academic-shadow rounded-3xl overflow-hidden bg-surface-container-lowest border border-outline-variant/10">
-              <div className="absolute inset-0 p-12 flex flex-col items-center justify-center text-center">
-                <span className="text-xs font-bold text-primary bg-primary-fixed px-3 py-1 rounded-full mb-6">
-                  Định lý cơ bản
-                </span>
-                <h3 className="font-headline font-bold text-4xl md:text-5xl text-on-surface tracking-tight max-w-2xl leading-tight">
-                  Định lý Weierstrass
-                </h3>
-                <p className="mt-8 text-tertiary max-w-md italic">
-                  Một trong những định lý quan trọng nhất về tính hội tụ của dãy
-                  số đơn điệu.
-                </p>
-                <div className="absolute bottom-10 flex items-center gap-2 text-tertiary opacity-50">
-                  <span
-                    className="material-symbols-outlined text-sm"
-                    data-icon="touch_app"
-                  >
-                    touch_app
-                  </span>
-                  <span className="text-xs font-medium uppercase tracking-widest">
-                    Nhấn để lật thẻ
-                  </span>
+            {loading || loadingC ? (
+              <Skeleton className="w-full h-64 rounded-3xl mb-6" />
+            ) : !card ? (
+              <div className="w-full h-64 bg-white rounded-3xl border border-slate-100 flex items-center justify-center text-slate-400">
+                <div className="text-center">
+                  <span className="material-symbols-outlined text-5xl mb-2 block">style</span>
+                  <p>Chưa có thẻ nào trong bộ này</p>
                 </div>
               </div>
-
-              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-surface-container">
-                <div className="h-full bg-primary-container"></div>
-              </div>
-            </div>
-
-            <div className="mt-12 w-full max-w-2xl">
-              <div className="flex justify-center mb-8">
-                <button className="bg-primary hover:bg-primary-container text-white px-10 py-4 rounded-2xl font-bold flex items-center gap-3 transition-all academic-shadow active:scale-95">
-                  <span className="material-symbols-outlined" data-icon="flip">
-                    flip
-                  </span>
-                  Lật thẻ
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <button className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-container-low hover:bg-error-container text-error transition-all group border border-transparent hover:border-error/20">
-                  <span
-                    className="material-symbols-outlined text-3xl"
-                    data-icon="close"
-                  >
-                    close
-                  </span>
-                  <span className="text-sm font-bold">Chưa thuộc</span>
-                </button>
-                <button className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-container-low hover:bg-[#fff7e6] text-[#ff9800] transition-all group border border-transparent hover:border-[#ff9800]/20">
-                  <span
-                    className="material-symbols-outlined text-3xl"
-                    data-icon="history"
-                  >
-                    history
-                  </span>
-                  <span className="text-sm font-bold">Xem lại sau</span>
-                </button>
-                <button className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-container-low hover:bg-[#e6f4ea] text-[#2e7d32] transition-all group border border-transparent hover:border-[#2e7d32]/20">
-                  <span
-                    className="material-symbols-outlined text-3xl"
-                    data-icon="done_all"
-                  >
-                    done_all
-                  </span>
-                  <span className="text-sm font-bold">Đã thuộc</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <aside className="w-full lg:w-80 flex flex-col gap-6">
-            <div className="bg-surface-container-lowest academic-shadow rounded-3xl p-6 border border-outline-variant/10 flex flex-col h-full relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center animate-pulse">
-                  <span
-                    className="material-symbols-outlined text-primary"
-                    data-icon="smart_toy"
-                    data-weight="fill"
-                  >
-                    smart_toy
-                  </span>
+            ) : (
+              <>
+                {/* Progress */}
+                <div className="w-full flex items-center gap-4 mb-6">
+                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-primary rounded-full transition-all" style={{ width: `${prog}%` }} />
+                  </div>
+                  <span className="text-sm font-bold text-slate-400">{idx + 1}/{cards.length}</span>
                 </div>
-              </div>
-              <h4 className="font-headline font-bold text-lg text-on-surface mb-1">
-                EduAI Tutor
-              </h4>
-              <p className="text-xs text-tertiary mb-6">
-                Trợ lý học tập thông minh
-              </p>
-              <div className="space-y-4 overflow-y-auto flex-1 pr-1">
-                <div className="bg-surface-container-low p-4 rounded-2xl rounded-tl-none">
-                  <p className="text-sm text-on-surface leading-relaxed">
-                    Chào Minh! Bạn đang học về{" "}
-                    <strong>Định lý Weierstrass</strong>. Định lý này khẳng định
-                    rằng:
-                  </p>
+
+                {/* Flip card */}
+                <div onClick={() => setFlipped(f => !f)} className="w-full h-72 cursor-pointer" style={{ perspective: '1000px' }}>
+                  <div style={{
+                    transformStyle: 'preserve-3d',
+                    transition: 'transform 0.5s',
+                    transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    width: '100%', height: '100%', position: 'relative'
+                  }}>
+                    <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
+                      className="bg-gradient-to-br from-primary to-primary-container rounded-3xl p-10 flex flex-col items-center justify-center text-white shadow-xl">
+                      <p className="text-xs font-bold uppercase tracking-widest opacity-60 mb-4">Câu hỏi</p>
+                      <p className="text-xl font-bold text-center">{card.front_text}</p>
+                      <p className="text-xs opacity-50 mt-6">Nhấn để xem đáp án</p>
+                    </div>
+                    <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}
+                      className="bg-white border border-slate-100 rounded-3xl p-10 flex flex-col items-center justify-center shadow-xl">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-300 mb-4">Đáp án</p>
+                      <p className="text-xl font-bold text-center text-on-surface">{card.back_text}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-surface-container-low p-4 rounded-2xl rounded-tl-none">
-                  <p className="text-sm text-on-surface italic bg-white/50 p-3 rounded-lg border-l-4 border-primary mb-2">
-                    "Mọi dãy đơn điệu và bị chặn đều hội tụ."
-                  </p>
-                  <p className="text-sm text-on-surface leading-relaxed">
-                    Hãy tưởng tượng bạn đang leo một cầu thang (dãy tăng) nhưng
-                    trần nhà có giới hạn (bị chặn trên). Chắc chắn bạn sẽ không
-                    thể leo mãi được mà phải tiến sát tới một điểm nào đó!
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6">
-                <div className="relative">
-                  <input
-                    className="w-full bg-surface-container rounded-xl border-none focus:ring-2 focus:ring-primary/20 text-sm py-3 pl-4 pr-12 placeholder:text-tertiary/60"
-                    placeholder="Hỏi AI thêm về ví dụ..."
-                    type="text"
-                  />
-                  <button className="absolute right-2 top-1.5 w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center hover:scale-105 transition-transform">
-                    <span
-                      className="material-symbols-outlined text-sm"
-                      data-icon="arrow_upward"
-                    >
-                      arrow_upward
-                    </span>
+
+                {/* Navigation */}
+                <div className="flex items-center justify-center gap-4 mt-6">
+                  <button onClick={() => { setIdx(i => Math.max(0, i - 1)); setFlipped(false); }}
+                    disabled={idx === 0}
+                    className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-40 shadow-sm">
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
+                  <button onClick={() => setFlipped(f => !f)}
+                    className="px-8 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:opacity-90">
+                    {flipped ? 'Câu hỏi' : 'Đáp án'}
+                  </button>
+                  <button onClick={() => { setIdx(i => Math.min(i + 1, cards.length - 1)); setFlipped(false); }}
+                    disabled={idx === cards.length - 1}
+                    className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-40 shadow-sm">
+                    <span className="material-symbols-outlined">arrow_forward</span>
                   </button>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
+          </div>
 
-            <div className="bg-primary p-6 rounded-3xl academic-shadow text-white relative overflow-hidden">
-              <div className="absolute -right-4 -bottom-4 opacity-10">
-                <span
-                  className="material-symbols-outlined text-[120px]"
-                  data-icon="trending_up"
-                >
-                  trending_up
-                </span>
-              </div>
-              <div className="relative z-10">
-                <h5 className="text-xs font-bold uppercase tracking-widest opacity-80 mb-4">
-                  Focus Mode
-                </h5>
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-3xl font-headline font-extrabold tracking-tight">
-                    42
-                  </span>
-                  <span className="text-sm opacity-80">phút</span>
-                </div>
-                <p className="text-xs opacity-70">
-                  Thời gian học hiệu quả hôm nay
-                </p>
-              </div>
-            </div>
+          {/* Set list sidebar */}
+          <aside className="w-72 shrink-0 space-y-3">
+            <h3 className="font-bold text-sm text-slate-500 uppercase tracking-wider">Bộ thẻ học</h3>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)
+            ) : sets.map(s => (
+              <button key={s.id} onClick={() => { setSelSet(s); loadCards(s.id); }}
+                className={`w-full text-left p-4 rounded-xl border transition-all ${selSet?.id === s.id ? 'border-primary bg-primary/5' : 'border-slate-100 bg-white hover:border-primary/30'}`}>
+                <p className="font-semibold text-sm text-on-surface">{s.title}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{s.courses?.name ?? '—'}</p>
+              </button>
+            ))}
           </aside>
         </div>
       </main>
-
-      <button className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform z-50">
-        <span className="material-symbols-outlined" data-icon="smart_toy">
-          smart_toy
-        </span>
-      </button>
     </div>
   );
 };

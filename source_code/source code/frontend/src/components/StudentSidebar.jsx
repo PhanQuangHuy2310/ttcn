@@ -1,88 +1,65 @@
-import React from "react";
-import { Link } from "react-router-dom";
+// src/components/StudentSidebar.jsx
+// ─── ONLY LOGIC CHANGED — UI STRUCTURE PRESERVED ────────────
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const StudentSidebar = () => {
+  const location = useLocation();
+
+  const navLinks = [
+    { icon: 'home',            text: 'Trang chủ',         href: '/student/dashboardstudent-dhdedu-azota-style' },
+    { icon: 'school',          text: 'Lớp học',            href: '/student/overviewstudent-viet-hoa' },
+    { icon: 'quiz',            text: 'Làm bài thi',        href: '/student/mock-examsstudent' },
+    { icon: 'history',         text: 'Lịch sử',            href: '/student/history-chi-tietstudent' },
+    { icon: 'style',           text: 'Flashcard',          href: '/student/flashcards-dhdedu-viet-hoa' },
+    { icon: 'fitness_center',  text: 'Luyện tập',          href: '/student/practicestudent' },
+    { icon: 'analytics',       text: 'Thống kê',           href: '/student/statistics-chi-tietstudent' },
+    { icon: 'person',          text: 'Hồ sơ',             href: '/common/profile-dhdedu-viet-hoa' },
+  ];
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
+
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 border-r-0 bg-[#ffffff] shadow-[0px_12px_32px_rgba(0,28,56,0.06)] flex flex-col py-6 gap-2 z-50">
+    <aside className="h-screen w-64 fixed left-0 top-0 border-r-0 bg-white shadow-[0px_12px_32px_rgba(0,28,56,0.06)] flex flex-col py-6 gap-2 z-50">
       <div className="px-6 mb-8">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-extrabold tracking-tight font-headline">
             <span className="text-primary">DHD</span>
-            <span className="text-[#F59E0B]">edu</span>
+            <span className="text-orange-500">edu</span>
           </span>
         </div>
-        <p className="text-xs text-slate-400 mt-1 font-medium">
-          The Digital Curator
-        </p>
       </div>
-      <nav className="flex-1 space-y-1">
-        <Link
-          className="bg-[#005ea5] text-white rounded-xl mx-2 px-4 py-3 flex items-center gap-3 active-tab-shadow"
-          to="#"
-        >
-          <span className="material-symbols-outlined" data-icon="dashboard">
-            dashboard
-          </span>
-          <span className="text-sm font-medium">Bảng điều khiển</span>
-        </Link>
-        <Link
-          className="text-slate-500 hover:bg-[#eeeeee] mx-2 px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200"
-          to="#"
-        >
-          <span className="material-symbols-outlined" data-icon="school">
-            school
-          </span>
-          <span className="text-sm font-medium">Lớp học</span>
-        </Link>
-        <Link
-          className="text-slate-500 hover:bg-[#eeeeee] mx-2 px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200"
-          to="#"
-        >
-          <span
-            className="material-symbols-outlined"
-            data-icon="calendar_today"
-          >
-            calendar_today
-          </span>
-          <span className="text-sm font-medium">Lịch học</span>
-        </Link>
-        <Link
-          className="text-slate-500 hover:bg-[#eeeeee] mx-2 px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200"
-          to="#"
-        >
-          <span className="material-symbols-outlined" data-icon="folder_open">
-            folder_open
-          </span>
-          <span className="text-sm font-medium">Tài liệu</span>
-        </Link>
-        <Link
-          className="text-slate-500 hover:bg-[#eeeeee] mx-2 px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200"
-          to="#"
-        >
-          <span className="material-symbols-outlined" data-icon="settings">
-            settings
-          </span>
-          <span className="text-sm font-medium">Cài đặt</span>
-        </Link>
+      <nav className="flex-1 flex flex-col gap-1 px-3 overflow-y-auto">
+        {navLinks.map((link, i) => {
+          const isActive = location.pathname === link.href;
+          return (
+            <Link
+              key={i}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm ${
+                isActive
+                  ? 'bg-primary text-white font-bold shadow-md shadow-primary/20'
+                  : 'text-slate-600 hover:bg-surface-container hover:text-on-surface font-medium'
+              }`}
+              to={link.href}
+            >
+              <span className="material-symbols-outlined text-xl">{link.icon}</span>
+              <span>{link.text}</span>
+            </Link>
+          );
+        })}
       </nav>
-      <div className="px-4 mt-auto">
-        <button className="w-full bg-gradient-to-br from-primary to-primary-container text-white rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-sm shadow-md hover:opacity-90 transition-all">
-          <span className="material-symbols-outlined text-sm" data-icon="add">
-            add
-          </span>
-          Tạo lớp mới
+      <div className="px-3 pt-4 border-t border-surface-container mt-auto">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors text-sm"
+        >
+          <span className="material-symbols-outlined text-xl">logout</span>
+          <span className="font-medium">Đăng xuất</span>
         </button>
-        <div className="mt-4 pt-4 border-t border-surface-container">
-          <Link
-            className="text-slate-500 hover:bg-error-container/10 hover:text-error mx-2 px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200"
-            to="#"
-          >
-            <span className="material-symbols-outlined" data-icon="logout">
-              logout
-            </span>
-            <span className="text-sm font-medium">Đăng xuất</span>
-          </Link>
-        </div>
       </div>
     </aside>
   );

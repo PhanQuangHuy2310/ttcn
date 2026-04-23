@@ -15,4 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build Docker Image
-      run: docker build -f "source code/backend/Dockerfile" "source code/backend" --tag my-image-name:$(date +%s)
+      run: docker build -f "source_code/source code/backend/Dockerfile" "source_code/source code/backend" -t my-image-name:$(date +%s)

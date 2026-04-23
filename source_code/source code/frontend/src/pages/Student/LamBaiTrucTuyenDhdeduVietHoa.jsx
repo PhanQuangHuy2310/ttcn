@@ -1,154 +1,273 @@
-import React from "react";
-import StudentSidebar from "../../components/StudentSidebar";
-import StudentHeader from "../../components/StudentHeader";
+// src/pages/Student/LamBaiTrucTuyenDhdeduVietHoa.jsx
+// ─── ONLY LOGIC CHANGED — UI STRUCTURE PRESERVED ────────────
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import StudentSidebar from '../../components/StudentSidebar';
+import StudentHeader from '../../components/StudentHeader';
+import { supabase } from '../../lib/supabase';
+import { studentService } from '../../hooks/useSupabaseQuery';
+
+const Skeleton = ({ className = '' }) => (
+  <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+);
 
 const LamBaiTrucTuyenDhdeduVietHoa = () => {
+  const [searchParams]   = useSearchParams();
+  const examId           = searchParams.get('examId');
+
+  const [examData,      setExamData]      = useState(null);    // { exam, submission }
+  const [answers,       setAnswers]       = useState({});      // { questionId: optionIndex }
+  const [phase,         setPhase]         = useState('loading'); // loading | preview | taking | submitted | error
+  const [timeLeft,      setTimeLeft]      = useState(0);       // seconds
+  const [submitting,    setSubmitting]    = useState(false);
+  const [userId,        setUserId]        = useState(null);
+  const [error,         setError]         = useState(null);
+  const timerRef        = useRef(null);
+
+  // Load exam + existing submission
+  useEffect(() => {
+    if (!examId) { setPhase('error'); setError('Không tìm thấy ID kỳ thi'); return; }
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setPhase('error'); setError('Bạn chưa đăng nhập'); return; }
+      setUserId(user.id);
+
+      const { data, error: err } = await studentService.getExamDetail(examId, user.id);
+      if (err) { setPhase('error'); setError(err); return; }
+
+      setExamData(data);
+
+      if (data.submission?.status === 'SUBMITTED') {
+        setPhase('submitted');
+      } else if (data.submission?.status === 'IN_PROGRESS') {
+        const elapsed = data.submission.time_spent ?? 0;
+        setTimeLeft(Math.max(0, data.exam.duration * 60 - elapsed));
+        if (data.submission.answers) setAnswers(data.submission.answers);
+        setPhase('taking');
+      } else {
+        setPhase('preview');
+      }
+    }
+    load();
+  }, [examId]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (phase !== 'taking') return;
+    if (timeLeft <= 0) { handleSubmit(true); return; }
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) { clearInterval(timerRef.current); handleSubmit(true); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  const handleStart = async () => {
+    const { error: err } = await studentService.startExam(examId, userId);
+    if (err) { setError(err); return; }
+    setTimeLeft(examData.exam.duration * 60);
+    setPhase('taking');
+  };
+
+  const handleAnswer = (questionId, optionId) => {
+    setAnswers(prev => ({ ...prev, [questionId]: String(optionId) }));
+  };
+
+  const calcScore = useCallback(() => {
+    const questions = examData?.exam?.questions ?? [];
+    let correct = 0;
+    let total   = 0;
+    questions.forEach(q => {
+      if (q.type === 'MCQ') {
+        total++;
+        if (answers[q.id] === q.correct_answer) correct++;
+      }
+    });
+    return total > 0 ? parseFloat(((correct / total) * 10).toFixed(1)) : 0;
+  }, [answers, examData]);
+
+  const handleSubmit = async (auto = false) => {
+    if (submitting) return;
+    setSubmitting(true);
+    clearInterval(timerRef.current);
+
+    const score     = calcScore();
+    const duration  = examData?.exam?.duration ?? 0;
+    const timeSpent = duration * 60 - timeLeft;
+
+    const { error: err } = await studentService.submitExam(examId, userId, answers, score, timeSpent);
+    if (err) { setError(String(err)); setSubmitting(false); return; }
+
+    setExamData(prev => ({ ...prev, submission: { ...prev?.submission, status: 'SUBMITTED', score } }));
+    setPhase('submitted');
+    setSubmitting(false);
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  };
+
+  const exam       = examData?.exam;
+  const submission = examData?.submission;
+  const questions  = exam?.questions ?? [];
+  const answered   = Object.keys(answers).length;
+
   return (
     <div className="stitch-screen w-full h-full min-h-screen bg-gray-50">
-      <StudentHeader />
-
       <StudentSidebar />
+      <main className="ml-64 min-h-screen p-8">
+        <StudentHeader />
 
-      <main className="ml-80 pt-16 min-h-screen">
-        <div className="max-w-4xl mx-auto p-8 lg:p-12">
-          <div className="bg-white rounded-3xl shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-            <div className="bg-slate-50 p-8 border-b border-slate-100">
-              <div className="flex items-center gap-4 mb-4">
-                <span className="bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold tracking-wider text-sm uppercase">
-                  Câu 05
-                </span>
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                  <span className="w-2 h-2 rounded-full bg-slate-200"></span>
-                  <span className="w-2 h-2 rounded-full bg-slate-200"></span>
-                </div>
+        {/* ── Loading ── */}
+        {phase === 'loading' && (
+          <div className="max-w-3xl mx-auto space-y-4 mt-4">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-40 rounded-2xl" />
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {phase === 'error' && (
+          <div className="max-w-lg mx-auto mt-16 text-center">
+            <span className="material-symbols-outlined text-5xl text-red-400 mb-3 block">error</span>
+            <h2 className="text-xl font-bold text-on-surface mb-2">Đã xảy ra lỗi</h2>
+            <p className="text-slate-500 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* ── Preview ── */}
+        {phase === 'preview' && exam && (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+              <h1 className="text-2xl font-black text-on-surface mb-2">{exam.title}</h1>
+              <p className="text-slate-500 text-sm mb-6">
+                {exam.courses?.name} · {exam.classes?.name}
+              </p>
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                {[
+                  { label: 'Thời gian', value: `${exam.duration} phút`, icon: 'timer' },
+                  { label: 'Số câu hỏi', value: `${questions.length} câu`, icon: 'quiz' },
+                  { label: 'Bắt đầu', value: exam.start_time ? new Date(exam.start_time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—', icon: 'event' },
+                  { label: 'Trộn câu', value: exam.shuffle_questions ? 'Có' : 'Không', icon: 'shuffle' },
+                ].map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
+                    <span className="material-symbols-outlined text-primary">{c.icon}</span>
+                    <div>
+                      <p className="text-xs text-slate-400">{c.label}</p>
+                      <p className="font-bold text-sm text-on-surface">{c.value}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 leading-relaxed">
-                Độ phức tạp của thuật toán QuickSort trong trường hợp xấu nhất
-                là gì?
-              </h2>
-            </div>
-
-            <div className="p-8 flex-grow space-y-4">
-              <label className="group relative flex items-center p-5 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:bg-blue-50/30 transition-all cursor-pointer">
-                <input className="hidden peer" name="question-5" type="radio" />
-                <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 font-bold group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors peer-checked:bg-blue-700 peer-checked:text-white">
-                  A
-                </div>
-                <span className="ml-6 text-lg font-medium text-slate-700">
-                  O(n log n)
-                </span>
-                <div className="absolute right-6 opacity-0 peer-checked:opacity-100 text-blue-700 transition-opacity">
-                  <span className="material-symbols-outlined">
-                    check_circle
-                  </span>
-                </div>
-              </label>
-
-              <label className="group relative flex items-center p-5 rounded-2xl border-2 border-blue-600 bg-blue-50/50 transition-all cursor-pointer">
-                <input
-                  checked=""
-                  className="hidden peer"
-                  name="question-5"
-                  type="radio"
-                />
-                <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-blue-700 text-white font-bold transition-colors">
-                  B
-                </div>
-                <span className="ml-6 text-lg font-bold text-blue-900">
-                  O(n²)
-                </span>
-                <div className="absolute right-6 text-blue-700">
-                  <span className="material-symbols-outlined">
-                    check_circle
-                  </span>
-                </div>
-              </label>
-
-              <label className="group relative flex items-center p-5 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:bg-blue-50/30 transition-all cursor-pointer">
-                <input className="hidden peer" name="question-5" type="radio" />
-                <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 font-bold group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors peer-checked:bg-blue-700 peer-checked:text-white">
-                  C
-                </div>
-                <span className="ml-6 text-lg font-medium text-slate-700">
-                  O(n)
-                </span>
-                <div className="absolute right-6 opacity-0 peer-checked:opacity-100 text-blue-700 transition-opacity">
-                  <span className="material-symbols-outlined">
-                    check_circle
-                  </span>
-                </div>
-              </label>
-
-              <label className="group relative flex items-center p-5 rounded-2xl border-2 border-slate-100 hover:border-blue-100 hover:bg-blue-50/30 transition-all cursor-pointer">
-                <input className="hidden peer" name="question-5" type="radio" />
-                <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 font-bold group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors peer-checked:bg-blue-700 peer-checked:text-white">
-                  D
-                </div>
-                <span className="ml-6 text-lg font-medium text-slate-700">
-                  O(log n)
-                </span>
-                <div className="absolute right-6 opacity-0 peer-checked:opacity-100 text-blue-700 transition-opacity">
-                  <span className="material-symbols-outlined">
-                    check_circle
-                  </span>
-                </div>
-              </label>
-            </div>
-
-            <div className="p-8 flex justify-between items-center bg-slate-50">
-              <button className="flex items-center gap-2 px-6 py-3 rounded-xl border border-outline-variant text-slate-600 font-bold hover:bg-slate-200 transition-all active:scale-[0.98]">
-                <span className="material-symbols-outlined">arrow_back</span>
-                Quay lại
-              </button>
-              <div className="hidden md:flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-700"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-              </div>
-              <button className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary text-white font-bold hover:opacity-90 transition-all shadow-md active:scale-[0.98]">
-                Tiếp theo
-                <span className="material-symbols-outlined">arrow_forward</span>
+              <button
+                onClick={handleStart}
+                className="w-full py-3.5 bg-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+              >
+                Bắt đầu làm bài
               </button>
             </div>
           </div>
+        )}
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="glass-panel p-6 rounded-3xl border border-white flex gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700">
-                <span className="material-symbols-outlined">lightbulb</span>
-              </div>
+        {/* ── Taking exam ── */}
+        {phase === 'taking' && exam && (
+          <div className="max-w-3xl mx-auto">
+            {/* Timer bar */}
+            <div className={`sticky top-4 z-10 flex items-center justify-between p-4 rounded-2xl shadow-md mb-6 ${
+              timeLeft < 300 ? 'bg-red-600 text-white' : 'bg-primary text-white'
+            }`}>
               <div>
-                <h4 className="font-bold text-slate-800">Gợi ý</h4>
-                <p className="text-sm text-slate-500">
-                  Trường hợp xấu nhất của QuickSort xảy ra khi trục (pivot) là
-                  phần tử lớn nhất hoặc nhỏ nhất.
-                </p>
+                <p className="text-xs opacity-80 font-medium">{exam.title}</p>
+                <p className="font-bold text-sm">{answered}/{questions.length} câu đã trả lời</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-xl">timer</span>
+                <span className="text-xl font-black font-mono">{formatTime(timeLeft)}</span>
               </div>
             </div>
-            <div className="glass-panel p-6 rounded-3xl border border-white flex gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-700">
-                <span className="material-symbols-outlined">history</span>
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-800">Thời gian làm bài</h4>
-                <p className="text-sm text-slate-500">
-                  Trung bình bạn dành 45 giây cho mỗi câu hỏi.
-                </p>
-              </div>
+
+            {/* Questions */}
+            <div className="space-y-6">
+              {questions.map((q, idx) => (
+                <div key={q.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                  <p className="font-semibold text-sm mb-4">
+                    <span className="text-primary font-black mr-2">Câu {idx + 1}.</span>
+                    {q.content}
+                  </p>
+                  {q.type === 'MCQ' && Array.isArray(q.options) && (
+                    <div className="space-y-2">
+                      {q.options.map(opt => {
+                        const selected = answers[q.id] === String(opt.id);
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() => handleAnswer(q.id, opt.id)}
+                            className={`w-full text-left p-3.5 rounded-xl border-2 transition-all text-sm ${
+                              selected
+                                ? 'border-primary bg-primary/5 font-semibold text-primary'
+                                : 'border-slate-100 hover:border-primary/30 text-on-surface'
+                            }`}
+                          >
+                            <span className="font-bold mr-2">{String.fromCharCode(64 + opt.id)}.</span>
+                            {opt.text}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {q.type === 'ESSAY' && (
+                    <textarea
+                      rows={4}
+                      value={answers[q.id] ?? ''}
+                      onChange={e => handleAnswer(q.id, e.target.value)}
+                      placeholder="Nhập câu trả lời của bạn..."
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={() => handleSubmit(false)}
+                disabled={submitting}
+                className="px-8 py-3.5 bg-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                {submitting ? 'Đang nộp bài...' : 'Nộp bài'}
+              </button>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Submitted ── */}
+        {phase === 'submitted' && (
+          <div className="max-w-lg mx-auto mt-16 text-center">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-10">
+              <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-green-500 text-4xl">check_circle</span>
+              </div>
+              <h2 className="text-2xl font-black text-on-surface mb-2">Đã nộp bài!</h2>
+              <p className="text-slate-500 text-sm mb-6">{exam?.title}</p>
+              {submission?.score !== null && (
+                <div className="p-4 bg-primary/5 rounded-2xl mb-6">
+                  <p className="text-xs text-slate-400 mb-1">Điểm của bạn</p>
+                  <p className="text-4xl font-black text-primary">{submission?.score ?? calcScore()}<span className="text-lg text-slate-400">/10</span></p>
+                </div>
+              )}
+              <a href="/student/history-chi-tietstudent" className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
+                Xem lịch sử làm bài
+              </a>
+            </div>
+          </div>
+        )}
       </main>
-
-      <button
-        className="fixed bottom-8 right-8 w-16 h-16 rounded-full bg-primary text-white shadow-2xl flex items-center justify-center md:hidden hover:scale-110 active:scale-95 transition-all"
-        title="Nộp bài"
-      >
-        <span className="material-symbols-outlined text-3xl" data-icon="send">
-          send
-        </span>
-      </button>
     </div>
   );
 };

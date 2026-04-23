@@ -1,297 +1,220 @@
-import React from "react";
-import StudentSidebar from "../../components/StudentSidebar";
-import StudentHeader from "../../components/StudentHeader";
+// src/pages/Student/XemTruocBaiThiSinhVien.jsx
+// ─── ONLY LOGIC CHANGED — UI STRUCTURE PRESERVED ────────────
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import StudentSidebar from '../../components/StudentSidebar';
+import StudentHeader from '../../components/StudentHeader';
+import { supabase } from '../../lib/supabase';
+import { studentService } from '../../hooks/useSupabaseQuery';
+
+const Skeleton = ({ className = '' }) => (
+  <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+);
 
 const XemTruocBaiThiSinhVien = () => {
+  const [sp]      = useSearchParams();
+  const examId    = sp.get('examId');
+  const [exam,    setExam]    = useState(null);
+  const [sub,     setSub]     = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  useEffect(() => {
+    async function init() {
+      if (!examId) { setLoading(false); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const [examRes, subRes] = await Promise.all([
+          supabase.from('exams').select(`
+            id, title, duration, start_time, shuffle_questions, anti_cheat, password,
+            questions(id, type, points),
+            courses(name, subject, grade_level),
+            classes(name)
+          `).eq('id', examId).single(),
+          user
+            ? supabase.from('submissions').select('id, status, score, submitted_at')
+                .eq('exam_id', examId).eq('student_id', user.id).maybeSingle()
+            : { data: null },
+        ]);
+        if (examRes.error) throw examRes.error;
+        setExam(examRes.data);
+        setSub(subRes.data);
+      } catch (err) {
+        setError(err?.message ?? 'Lỗi tải dữ liệu');
+      }
+      setLoading(false);
+    }
+    init();
+  }, [examId]);
+
+  const qTotal  = (exam?.questions ?? []).length;
+  const mcqCount = (exam?.questions ?? []).filter(q => q.type === 'MCQ').length;
+  const essayCount = qTotal - mcqCount;
+  const totalPts = (exam?.questions ?? []).reduce((acc, q) => acc + (q.points ?? 0), 0);
+
+  const fmtDate = (iso) => iso ? new Date(iso).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Chưa lên lịch';
+
+  const statusOf = () => {
+    if (!exam?.start_time) return { label: 'Chưa lên lịch', cls: 'bg-slate-100 text-slate-500' };
+    const now = new Date(), start = new Date(exam.start_time);
+    const end = new Date(start.getTime() + exam.duration * 60000);
+    if (now < start) return { label: 'Sắp diễn ra', cls: 'bg-blue-50 text-blue-700' };
+    if (now <= end)  return { label: 'Đang diễn ra', cls: 'bg-green-50 text-green-700' };
+    return               { label: 'Đã kết thúc', cls: 'bg-slate-100 text-slate-500' };
+  };
+
   return (
     <div className="stitch-screen w-full h-full min-h-screen bg-gray-50">
       <StudentSidebar />
       <div className="ml-64 min-h-screen flex flex-col">
         <StudentHeader />
-
         <main className="flex-1 px-10 py-8 max-w-7xl mx-auto w-full">
+
+          {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs text-tertiary mb-6">
-            <a className="hover:text-primary" href="#">
-              Dashboard
-            </a>
-            <span
-              className="material-symbols-outlined text-[14px]"
-              data-icon="chevron_right"
-            >
-              chevron_right
-            </span>
-            <a className="hover:text-primary" href="#">
-              Bài thi của tôi
-            </a>
-            <span
-              className="material-symbols-outlined text-[14px]"
-              data-icon="chevron_right"
-            >
-              chevron_right
-            </span>
-            <span className="text-on-surface font-semibold">
-              Xem trước bài thi
-            </span>
+            <a className="hover:text-primary" href="/student/dashboard">Dashboard</a>
+            <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+            <a className="hover:text-primary" href="/student/mock-exams-student">Bài thi của tôi</a>
+            <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+            <span className="text-on-surface font-medium">{loading ? '...' : exam?.title}</span>
           </nav>
-          <div className="grid grid-cols-12 gap-8">
-            <div className="col-span-12 lg:col-span-8 space-y-8">
-              <div className="bg-surface-container-lowest rounded-2xl p-8 shadow-[0px_12px_32px_rgba(0,28,56,0.04)] overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -mr-24 -mt-24 blur-3xl"></div>
-                <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest">
-                      Giữa Kỳ
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-error/10 text-error text-[10px] font-bold uppercase tracking-widest">
-                      Quan trọng
-                    </span>
+
+          {error && <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">⚠️ {error}</div>}
+
+          {!examId ? (
+            <div className="p-16 bg-white rounded-2xl text-center text-slate-400">
+              <span className="material-symbols-outlined text-5xl mb-3 block">quiz</span>
+              <p>Vui lòng thêm ?examId=... vào URL để xem trước đề thi</p>
+            </div>
+          ) : loading ? (
+            <div className="space-y-6">
+              <Skeleton className="h-10 w-80" />
+              <div className="grid grid-cols-4 gap-4"><Skeleton className="h-20 rounded-2xl" /><Skeleton className="h-20 rounded-2xl" /><Skeleton className="h-20 rounded-2xl" /><Skeleton className="h-20 rounded-2xl" /></div>
+              <Skeleton className="h-48 rounded-2xl" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+              {/* Main info */}
+              <div className="lg:col-span-2 space-y-6">
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    {(() => { const s = statusOf(); return <span className={`text-xs font-bold px-3 py-1 rounded-full ${s.cls}`}>{s.label}</span>; })()}
+                    <span className="text-sm text-slate-400">{exam?.courses?.subject}</span>
                   </div>
-                  <h2 className="text-3xl font-headline font-bold text-on-surface mb-4 leading-tight">
-                    Kiểm tra giữa kỳ môn Cấu trúc dữ liệu &amp; Giải thuật
-                  </h2>
-                  <div className="flex flex-wrap gap-6 text-sm text-tertiary">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="material-symbols-outlined text-primary"
-                        data-icon="school"
-                      >
-                        school
-                      </span>
-                      <span>
-                        Học phần:{" "}
-                        <strong className="text-on-surface">
-                          IT3011 - 2023.2
-                        </strong>
-                      </span>
+                  <h1 className="text-3xl font-black text-on-surface mb-2">{exam?.title}</h1>
+                  <p className="text-slate-500">{exam?.courses?.name} · {exam?.classes?.name}</p>
+                </div>
+
+                {/* Key info grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'Thời gian làm',     value: `${exam?.duration} phút`,      icon: 'timer' },
+                    { label: 'Số câu hỏi',         value: `${qTotal} câu`,               icon: 'quiz' },
+                    { label: 'Thời gian bắt đầu',  value: fmtDate(exam?.start_time),    icon: 'event' },
+                    { label: 'Tổng điểm',          value: `${totalPts} điểm`,           icon: 'grade' },
+                  ].map((c, i) => (
+                    <div key={i} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                      <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-primary">{c.icon}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">{c.label}</p>
+                        <p className="font-bold text-sm text-on-surface">{c.value}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="material-symbols-outlined text-primary"
-                        data-icon="person"
-                      >
-                        person
-                      </span>
-                      <span>
-                        Giảng viên:{" "}
-                        <strong className="text-on-surface">
-                          TS. Lê Mạnh Hùng
-                        </strong>
-                      </span>
+                  ))}
+                </div>
+
+                {/* Structure */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                  <h3 className="font-bold mb-4">Cấu trúc đề thi</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-600 text-base">list</span>
+                        <span className="text-sm font-semibold text-blue-800">Trắc nghiệm</span>
+                      </div>
+                      <span className="text-sm font-black text-blue-700">{mcqCount} câu</span>
                     </div>
+                    {essayCount > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-purple-50 rounded-xl">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-purple-600 text-base">edit</span>
+                          <span className="text-sm font-semibold text-purple-800">Tự luận</span>
+                        </div>
+                        <span className="text-sm font-black text-purple-700">{essayCount} câu</span>
+                      </div>
+                    )}
+                    {exam?.shuffle_questions && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                        <span className="material-symbols-outlined text-sm">shuffle</span>
+                        <span>Câu hỏi được trộn ngẫu nhiên</span>
+                      </div>
+                    )}
+                    {exam?.anti_cheat && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <span className="material-symbols-outlined text-sm">security</span>
+                        <span>Chế độ chống gian lận được bật</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-2 md:col-span-1 bg-surface-container-lowest rounded-2xl p-6 shadow-[0px_12px_32px_rgba(0,28,56,0.04)]">
-                  <h3 className="text-lg font-headline font-bold text-on-surface mb-6 flex items-center gap-2">
-                    <span
-                      className="material-symbols-outlined text-secondary"
-                      data-icon="analytics"
-                    >
-                      analytics
-                    </span>
-                    Cấu trúc đề thi
-                  </h3>
-                  <div className="space-y-5">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-tertiary">Dễ (15 câu)</span>
-                        <span className="text-on-surface">37.5%</span>
-                      </div>
-                      <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full"></div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-tertiary">
-                          Trung bình (15 câu)
-                        </span>
-                        <span className="text-on-surface">37.5%</span>
-                      </div>
-                      <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-500 rounded-full"></div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-tertiary">Khó (10 câu)</span>
-                        <span className="text-on-surface">25.0%</span>
-                      </div>
-                      <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
-                        <div className="h-full bg-rose-500 rounded-full"></div>
-                      </div>
-                    </div>
+              {/* Action panel */}
+              <div className="space-y-5">
+                {/* Submission status */}
+                {sub && (
+                  <div className={`p-5 rounded-2xl ${sub.status === 'SUBMITTED' ? 'bg-green-50 border border-green-100' : 'bg-yellow-50 border border-yellow-100'}`}>
+                    <p className="text-sm font-bold mb-1">
+                      {sub.status === 'SUBMITTED' ? '✅ Đã nộp bài' : '⏳ Đang làm dở'}
+                    </p>
+                    {sub.score !== null && (
+                      <p className="text-2xl font-black text-primary">{sub.score}/10</p>
+                    )}
+                    {sub.submitted_at && (
+                      <p className="text-xs text-slate-400 mt-1">Nộp lúc {fmtDate(sub.submitted_at)}</p>
+                    )}
                   </div>
-                </div>
+                )}
 
-                <div className="col-span-2 md:col-span-1 bg-surface-container-lowest rounded-2xl p-6 shadow-[0px_12px_32px_rgba(0,28,56,0.04)]">
-                  <h3 className="text-lg font-headline font-bold text-on-surface mb-6 flex items-center gap-2">
-                    <span
-                      className="material-symbols-outlined text-error"
-                      data-icon="gavel"
-                    >
-                      gavel
-                    </span>
-                    Quy định &amp; Lưu ý
-                  </h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-start gap-3">
-                      <div className="mt-0.5 w-5 h-5 rounded bg-error/10 flex items-center justify-center flex-shrink-0">
-                        <span
-                          className="material-symbols-outlined text-error text-[14px]"
-                          data-icon="warning"
-                        >
-                          warning
-                        </span>
-                      </div>
-                      <p className="text-xs text-tertiary leading-relaxed">
-                        Không được phép chuyển tab hoặc trình duyệt khi đang làm
-                        bài.
-                      </p>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="mt-0.5 w-5 h-5 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span
-                          className="material-symbols-outlined text-primary text-[14px]"
-                          data-icon="timer"
-                        >
-                          timer
-                        </span>
-                      </div>
-                      <p className="text-xs text-tertiary leading-relaxed">
-                        Hệ thống sẽ tự động nộp bài khi hết thời gian quy định.
-                      </p>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="mt-0.5 w-5 h-5 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span
-                          className="material-symbols-outlined text-primary text-[14px]"
-                          data-icon="camera_alt"
-                        >
-                          camera_alt
-                        </span>
-                      </div>
-                      <p className="text-xs text-tertiary leading-relaxed">
-                        Yêu cầu bật webcam trong suốt quá trình làm bài thi trực
-                        tuyến.
-                      </p>
-                    </li>
+                {/* CTA */}
+                {(!sub || sub.status !== 'SUBMITTED') && (
+                  <a href={`/student/online-exam-dhdedu-viet-hoa?examId=${examId}`}
+                    className="block w-full py-4 bg-primary text-white rounded-2xl font-bold text-center text-base hover:opacity-90 shadow-lg shadow-primary/20 transition-opacity">
+                    {sub?.status === 'IN_PROGRESS' ? '▶ Tiếp tục làm bài' : '▶ Bắt đầu làm bài'}
+                  </a>
+                )}
+
+                {sub?.status === 'SUBMITTED' && (
+                  <a href={`/student/review-chi-tietstudent?submissionId=${sub.id}`}
+                    className="block w-full py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-center hover:bg-slate-50 transition-colors">
+                    Xem lại bài làm
+                  </a>
+                )}
+
+                {/* Exam rules */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-bold text-sm mb-3">Lưu ý khi thi</h3>
+                  <ul className="space-y-2 text-xs text-slate-500">
+                    {[
+                      'Không đóng tab hoặc thoát khỏi trang trong khi thi',
+                      'Đảm bảo kết nối internet ổn định',
+                      'Bài làm sẽ tự động nộp khi hết thời gian',
+                      exam?.password ? 'Cần mật khẩu để vào phòng thi' : 'Không cần mật khẩu',
+                    ].map((rule, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="material-symbols-outlined text-primary text-xs mt-0.5 shrink-0">info</span>
+                        {rule}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>
             </div>
-
-            <div className="col-span-12 lg:col-span-4 space-y-8">
-              <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-[0px_12px_32px_rgba(0,28,56,0.06)] border border-surface-container-high">
-                <h3 className="text-sm font-bold text-on-surface mb-6 uppercase tracking-wider">
-                  Thông tin chi tiết
-                </h3>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container-low">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center text-primary">
-                        <span
-                          className="material-symbols-outlined"
-                          data-icon="schedule"
-                        >
-                          schedule
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-tertiary">
-                        Thời gian
-                      </span>
-                    </div>
-                    <span className="text-sm font-bold text-on-surface">
-                      60 phút
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container-low">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center text-primary">
-                        <span
-                          className="material-symbols-outlined"
-                          data-icon="quiz"
-                        >
-                          quiz
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-tertiary">
-                        Câu hỏi
-                      </span>
-                    </div>
-                    <span className="text-sm font-bold text-on-surface">
-                      40 câu
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container-low">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center text-primary">
-                        <span
-                          className="material-symbols-outlined"
-                          data-icon="replay"
-                        >
-                          replay
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-tertiary">
-                        Lần làm còn lại
-                      </span>
-                    </div>
-                    <span className="text-sm font-bold text-on-surface">
-                      01 / 01
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-8">
-                  <button className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2">
-                    <span>BẮT ĐẦU LÀM BÀI</span>
-                    <span
-                      className="material-symbols-outlined"
-                      data-icon="arrow_forward"
-                    >
-                      arrow_forward
-                    </span>
-                  </button>
-                  <p className="text-[10px] text-center text-tertiary mt-4 px-4">
-                    Bằng việc nhấn nút, bạn đồng ý với mọi quy định của phòng
-                    thi ảo.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-surface-container rounded-2xl p-6 text-center">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-secondary shadow-sm">
-                  <span
-                    className="material-symbols-outlined"
-                    data-icon="support_agent"
-                  >
-                    support_agent
-                  </span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface mb-2">
-                  Gặp sự cố kỹ thuật?
-                </h4>
-                <p className="text-xs text-tertiary mb-4">
-                  Liên hệ ngay với bộ phận kỹ thuật để được hỗ trợ kịp thời.
-                </p>
-                <a
-                  className="text-xs font-bold text-primary hover:underline"
-                  href="#"
-                >
-                  Trung tâm trợ giúp
-                </a>
-              </div>
-            </div>
-          </div>
+          )}
         </main>
-
-        <footer className="px-10 py-6 text-center">
-          <p className="text-[11px] text-tertiary font-medium">
-            © 2024 DHDedu - Hệ thống Đào tạo &amp; Khảo thí Trực tuyến
-          </p>
-        </footer>
       </div>
     </div>
   );

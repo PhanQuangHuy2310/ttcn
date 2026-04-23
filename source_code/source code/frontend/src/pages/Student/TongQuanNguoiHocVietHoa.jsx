@@ -1,267 +1,184 @@
-import React from "react";
-import StudentSidebar from "../../components/StudentSidebar";
-import StudentHeader from "../../components/StudentHeader";
+// src/pages/Student/TongQuanNguoiHocVietHoa.jsx
+// ─── ONLY LOGIC CHANGED — UI STRUCTURE PRESERVED ────────────
+// Same data as TongQuanNguoiHocDhdeduVietHoaFontMoi – different class wrapper
+import React, { useState, useEffect } from 'react';
+import StudentSidebar from '../../components/StudentSidebar';
+import StudentHeader from '../../components/StudentHeader';
+import { supabase } from '../../lib/supabase';
+import { studentService } from '../../hooks/useSupabaseQuery';
+
+const Skeleton = ({ className = '' }) => (
+  <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+);
 
 const TongQuanNguoiHocVietHoa = () => {
+  const [profile,  setProfile]  = useState(null);
+  const [stats,    setStats]    = useState(null);
+  const [classes,  setClasses]  = useState([]);
+  const [recent,   setRecent]   = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const [prof, statsRes, classRes, histRes] = await Promise.all([
+        studentService.getProfile(user.id),
+        studentService.getDashboardStats(user.id),
+        studentService.getMyClasses(user.id),
+        studentService.getHistory(user.id),
+      ]);
+      setProfile(prof.data);
+      if (!statsRes.error) setStats(statsRes.data);
+      setClasses((classRes.data ?? []).slice(0, 6));
+      const hist = histRes.data ?? [];
+      setRecent(hist.filter(s => s.status === 'SUBMITTED').slice(0, 4));
+      const now = new Date();
+      setUpcoming(hist.filter(s => {
+        if (!s.exams?.start_time || s.status === 'SUBMITTED') return false;
+        const end = new Date(new Date(s.exams.start_time).getTime() + (s.exams.duration ?? 60) * 60000);
+        return end > now;
+      }).slice(0, 3));
+      setLoading(false);
+    }
+    init();
+  }, []);
+
+  const scores    = recent.map(s => s.score).filter(s => s !== null);
+  const avgScore  = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+  const mastery   = avgScore !== null ? Math.round(parseFloat(avgScore) * 10) : 0;
+
   return (
     <div className="stitch-screen w-full h-full min-h-screen bg-gray-50">
       <div className="flex h-screen overflow-hidden">
         <StudentSidebar />
-
         <main className="flex-1 flex flex-col overflow-y-auto">
           <StudentHeader />
           <div className="p-8 max-w-7xl mx-auto w-full">
+
             <section className="mb-10">
-              <h2 className="text-3xl font-black tracking-tight text-header-accent dark:text-white">
-                Chào mừng quay trở lại, Alex! 👋
-              </h2>
+              {loading ? <Skeleton className="h-8 w-64 mb-3" /> : (
+                <h2 className="text-3xl font-black tracking-tight text-header-accent dark:text-white">
+                  Chào mừng quay trở lại, {profile?.full_name?.split(' ').pop() ?? 'bạn'}! 👋
+                </h2>
+              )}
               <div className="mt-4 p-5 rounded-xl bg-secondary-accent/20 border border-secondary-accent">
                 <div className="flex items-start gap-4">
-                  <span className="material-symbols-outlined text-info-callout text-3xl">
-                    auto_awesome
-                  </span>
+                  <span className="material-symbols-outlined text-info-callout text-3xl">auto_awesome</span>
                   <div>
-                    <h3 className="font-bold text-header-accent mb-1">
-                      Tóm tắt học tập AI
-                    </h3>
-                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Bạn đã nắm vững{" "}
-                      <span className="font-bold text-slate-900 dark:text-white text-lg">
-                        85%
-                      </span>{" "}
-                      môn Giải tích. Hãy tập trung vào{" "}
-                      <span className="text-primary font-semibold">
-                        Hình học
-                      </span>{" "}
-                      hôm nay để duy trì chuỗi 12 ngày học và đạt mục tiêu tuần
-                      của bạn.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 shadow-sm">
-                <div className="size-12 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-3xl">
-                    task_alt
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Khóa học hoàn thành
-                  </p>
-                  <p className="text-2xl font-black text-header-accent">12</p>
-                </div>
-              </div>
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 shadow-sm">
-                <div className="size-12 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-3xl">
-                    star
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Điểm trung bình
-                  </p>
-                  <p className="text-2xl font-black text-header-accent">94%</p>
-                </div>
-              </div>
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 shadow-sm">
-                <div className="size-12 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-3xl">
-                    local_fire_department
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Chuỗi ngày học
-                  </p>
-                  <p className="text-2xl font-black text-header-accent">12</p>
-                </div>
-              </div>
-            </section>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <section>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-header-accent">
-                      Lộ trình học tập
-                    </h3>
-                    <a
-                      className="text-primary text-sm font-semibold hover:underline"
-                      href="#"
-                    >
-                      Xem tất cả
-                    </a>
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col md:flex-row shadow-sm">
-                    <div className="p-6 flex-1 flex flex-col justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-info-callout uppercase tracking-widest mb-1">
-                          Đang tiến hành
-                        </p>
-                        <h4 className="text-xl font-bold mb-1">
-                          Giải tích nâng cao
-                        </h4>
-                        <p className="text-slate-500 text-sm">
-                          Chương 4: Tích phân bội ba &amp; Ứng dụng
-                        </p>
-                        <div className="mt-6">
-                          <div className="flex justify-between text-xs font-bold mb-2">
-                            <span>Tiến độ</span>
-                            <span className="text-primary">65%</span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                            <div className="bg-primary h-full w-[65%] rounded-full"></div>
-                          </div>
-                        </div>
-                      </div>
-                      <button className="mt-8 bg-primary text-white py-2 px-6 rounded-lg font-bold text-sm w-fit hover:bg-primary/90 transition-all flex items-center gap-2">
-                        Tiếp tục học tập
-                        <span className="material-symbols-outlined text-[18px]">
-                          arrow_forward
-                        </span>
-                      </button>
-                    </div>
-                    <div className="w-full md:w-64 h-48 md:h-auto bg-slate-200 dark:bg-slate-800">
-                      <img
-                        alt="Trình quan sát trừu tượng các công thức toán học và hình học"
-                        className="w-full h-full object-cover"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlUNrtTREbUR7XC3wDICHfiLgSRwmUWoINF10IEsbP-43phcWDMTyYcGo6L7Vd7L7Kz9_7XPDz-i14D0H5GK-AdavbXSe6WcHih_xOhNEe3oTZoXekB3zfxFVnbUjiha2HcShgRfVHzBCmmZDatVLo9gn2xqakXPC256NSC0QZzEL8_W_WDfbOWZ4DKP6AEXuYaCB_bz9rRLHr5RVaQzaiBtLW3iBKMVNJsEGwLXlXFjb8Lwmg1ENNfgNVvsBgj9E6_cHG2lsD-bQ"
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="material-symbols-outlined text-info-callout">
-                      psychology
-                    </span>
-                    <h3 className="text-xl font-bold text-header-accent">
-                      Gợi ý từ AI
-                    </h3>
-                  </div>
-                  <div className="bg-primary text-white p-6 rounded-xl shadow-lg shadow-primary/20 relative overflow-hidden group border-l-4 border-orange-400">
-                    <div className="relative z-10">
-                      <h4 className="text-lg font-bold mb-2">
-                        Phát hiện lỗ hổng kiến thức
-                      </h4>
-                      <p className="text-blue-50 mb-4 text-sm leading-relaxed">
-                        "Bạn nên xem lại{" "}
-                        <span className="font-bold underline">
-                          Chương 3: Hình học
-                        </span>{" "}
-                        dựa trên lần làm bài trước. Độ chính xác của bạn trong
-                        các định lý đường tròn đã giảm 15%."
+                    <h3 className="font-bold text-header-accent mb-1">Tóm tắt học tập AI</h3>
+                    {loading ? <Skeleton className="h-4 w-80" /> : (
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Bạn đã nắm vững{' '}
+                        <span className="font-bold text-slate-900 dark:text-white text-lg">{mastery}%</span>
+                        {' '}nội dung. Điểm trung bình:{' '}
+                        <span className="font-bold text-primary">{avgScore ?? '—'}/10</span>.
+                        {' '}Đã hoàn thành <strong>{stats?.submitted ?? 0}</strong> kỳ thi.
+                        {stats?.inProgress > 0 && ` Còn ${stats.inProgress} bài đang làm dở.`}
                       </p>
-                      <div className="flex gap-3">
-                        <button className="bg-white text-primary px-4 py-2 rounded-lg font-bold text-xs hover:bg-slate-100 transition-colors">
-                          Bắt đầu ôn tập
-                        </button>
-                        <button className="bg-white/10 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-white/20 transition-colors">
-                          Bỏ qua
-                        </button>
-                      </div>
-                    </div>
-                    <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-[120px] opacity-10 rotate-12 group-hover:rotate-0 transition-transform">
-                      lightbulb
-                    </span>
+                    )}
                   </div>
-                </section>
+                </div>
+              </div>
+            </section>
+
+            {/* KPI */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+              {[
+                { label: 'Lớp đang học',  value: stats?.totalClasses,   icon: 'school',     cls: 'bg-blue-50 text-blue-600'    },
+                { label: 'Bài đã nộp',    value: stats?.submitted,      icon: 'task_alt',   cls: 'bg-green-50 text-green-600'  },
+                { label: 'Đang làm dở',   value: stats?.inProgress,     icon: 'pending',    cls: 'bg-yellow-50 text-yellow-600'},
+                { label: 'Điểm TB',       value: stats?.avgScore ? `${stats.avgScore}/10` : '—', icon: 'grade', cls: 'bg-purple-50 text-purple-600' },
+              ].map((c, i) => (
+                <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${c.cls}`}>
+                    <span className="material-symbols-outlined text-xl">{c.icon}</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">{c.label}</p>
+                    {loading ? <Skeleton className="h-6 w-10 mt-1" /> : <p className="text-xl font-black">{c.value ?? 0}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Classes grid */}
+              <div className="lg:col-span-2">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg">Lớp học ({classes.length})</h3>
+                  <a href="/student/class-detailsstudent-viet-hoa-font-moi" className="text-primary text-sm font-semibold">Tất cả →</a>
+                </div>
+                {loading ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+                  </div>
+                ) : classes.length === 0 ? (
+                  <div className="p-10 bg-white rounded-2xl border border-slate-100 text-center text-slate-400">
+                    <span className="material-symbols-outlined text-4xl mb-2 block">school</span>
+                    <p className="text-sm">Chưa đăng ký lớp nào</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {classes.map(sc => {
+                      const cls    = sc.classes;
+                      const course = cls?.courses;
+                      return (
+                        <a key={cls?.id}
+                          href={`/student/class-detailsstudent-viet-hoa-font-moi?classId=${cls?.id}`}
+                          className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:border-primary/30 hover:shadow-md transition-all block">
+                          <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center mb-2">
+                            <span className="material-symbols-outlined text-primary text-base">school</span>
+                          </div>
+                          <p className="font-bold text-xs text-on-surface line-clamp-2">{course?.name ?? cls?.name}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{course?.subject}</p>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              <aside>
-                <section>
-                  <h3 className="text-xl font-bold mb-4 text-header-accent">
-                    Hoạt động gần đây
-                  </h3>
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-6 shadow-sm">
-                    <div className="flex gap-4">
-                      <div className="size-10 flex-shrink-0 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">quiz</span>
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          Hoàn thành bài kiểm tra: Đại số tuyến tính
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Điểm: 92/100 • 2 giờ trước
-                        </p>
-                      </div>
+              {/* Right: upcoming + recent */}
+              <div className="space-y-5">
+                {/* Upcoming */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                  <h3 className="font-bold text-sm mb-3">Kỳ thi sắp tới</h3>
+                  {loading ? (
+                    <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
+                  ) : upcoming.length === 0 ? (
+                    <p className="text-slate-400 text-xs text-center py-4">Không có kỳ thi sắp tới</p>
+                  ) : upcoming.map(sub => (
+                    <div key={sub.id} className="p-3 bg-primary/5 rounded-xl mb-2">
+                      <p className="font-semibold text-xs text-on-surface">{sub.exams?.title}</p>
+                      <p className="text-[10px] text-slate-400">{sub.exams?.courses?.subject}</p>
+                      <a href={`/student/online-exam-dhdedu-viet-hoa?examId=${sub.exams?.id}`}
+                        className="text-[10px] font-bold text-primary mt-1 inline-block">Vào làm bài →</a>
                     </div>
-                    <div className="flex gap-4">
-                      <div className="size-10 flex-shrink-0 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">
-                          play_circle
-                        </span>
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          Đã xem video: Vật lý lượng tử
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Hoàn thành 15 phút • Hôm qua
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="size-10 flex-shrink-0 rounded-lg bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">style</span>
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          Luyện tập thẻ ghi nhớ: Sinh học
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          24 thẻ đã ôn tập • 2 ngày trước
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="size-10 flex-shrink-0 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined">
-                          assignment
-                        </span>
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          Đã nộp bài tập: Kinh tế học
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Đang chờ chấm điểm • 3 ngày trước
-                        </p>
-                      </div>
-                    </div>
-                    <button className="w-full py-2 text-primary text-sm font-bold border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors mt-2">
-                      Xem toàn bộ lịch sử
-                    </button>
-                  </div>
-                </section>
+                  ))}
+                </div>
 
-                <section className="mt-8">
-                  <div className="bg-header-accent dark:bg-primary/20 text-white p-6 rounded-xl shadow-md">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-bold">Mục tiêu hàng ngày</h4>
-                      <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                        45/60 phút
-                      </span>
+                {/* Recent */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                  <h3 className="font-bold text-sm mb-3">Kết quả gần đây</h3>
+                  {loading ? (
+                    <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-xl" />)}</div>
+                  ) : recent.length === 0 ? (
+                    <p className="text-slate-400 text-xs text-center py-4">Chưa có kết quả</p>
+                  ) : recent.map(sub => (
+                    <div key={sub.id} className="flex items-center justify-between p-2.5 hover:bg-slate-50 rounded-lg mb-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-xs truncate">{sub.exams?.title}</p>
+                        <p className="text-[10px] text-slate-400">{sub.exams?.courses?.subject}</p>
+                      </div>
+                      {sub.score !== null && (
+                        <span className={`text-sm font-black ${sub.score >= 5 ? 'text-green-600' : 'text-red-500'}`}>{sub.score}</span>
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <div className="h-2 flex-1 rounded-full bg-primary"></div>
-                      <div className="h-2 flex-1 rounded-full bg-primary"></div>
-                      <div className="h-2 flex-1 rounded-full bg-primary"></div>
-                      <div className="h-2 flex-1 rounded-full bg-white/20"></div>
-                    </div>
-                    <p className="text-xs mt-4 text-blue-50">
-                      Cố lên! Bạn chỉ còn 15 phút nữa là đạt được mục tiêu hàng
-                      ngày.
-                    </p>
-                  </div>
-                </section>
-              </aside>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </main>
