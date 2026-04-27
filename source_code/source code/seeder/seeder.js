@@ -97,11 +97,12 @@ const genEmail = (name, suffix) =>
 // ================= USER =================
 async function syncProfile(id, email, full_name, role) {
   await safe(`syncProfile ${email}`, async () => {
+    const finalRole = role || meta?.role || 'STUDENT';
     const { error } = await supabase.from('users').upsert({
       id,
       email,
       full_name,
-      role
+      role: finalRole
     }, {
       onConflict: 'id'
     });

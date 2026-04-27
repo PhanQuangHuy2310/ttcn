@@ -1,236 +1,150 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+// src/App.jsx
+// Clean router — one canonical route per feature. Removes 40+ duplicate/hardcoded pages.
+// All routes protected by role-specific PrivateRoute wrappers.
 
-import BaoMatPhanQuyenQuanTriVien from "./pages/Admin/BaoMatPhanQuyenQuanTriVien";
-import CaiAtHeThongQuanTriVien from "./pages/Admin/CaiAtHeThongQuanTriVien";
-import DashboardQuanTriVienDhdedu from "./pages/Admin/DashboardQuanTriVienDhdedu";
-import DashboardQuanTriVienDhdeduVietHoaFontMoi from "./pages/Admin/DashboardQuanTriVienDhdeduVietHoaFontMoi";
-import QuanLyNguoiDungQuanTriVien from "./pages/Admin/QuanLyNguoiDungQuanTriVien";
-import BaoCaoChiTietLopHocGiaoVien from "./pages/Teacher/BaoCaoChiTietLopHocGiaoVien";
-import BaoCaoThongKeGiaoVien from "./pages/Teacher/BaoCaoThongKeGiaoVien";
-import CauHinhMaTranEThiGiangVien from "./pages/Teacher/CauHinhMaTranEThiGiangVien";
-import ChamBaiGiaoVienMoRongKhungBaiLam from "./pages/Teacher/ChamBaiGiaoVienMoRongKhungBaiLam";
-import ChiTietLopHocGiaoVien from "./pages/Teacher/ChiTietLopHocGiaoVien";
-import DanhSachMaTranEThiGiangVien from "./pages/Teacher/DanhSachMaTranEThiGiangVien";
-import DashboardGiaoVienDhdedu from "./pages/Teacher/DashboardGiaoVienDhdedu";
-import DashboardGiaoVienDhdeduOngBoAzota from "./pages/Teacher/DashboardGiaoVienDhdeduOngBoAzota";
-import DashboardGiaoVienDhdeduVietHoaFontMoi from "./pages/Teacher/DashboardGiaoVienDhdeduVietHoaFontMoi";
-import DashboardGiaoVienOngBoUi from "./pages/Teacher/DashboardGiaoVienOngBoUi";
-import KhoNoiDungGiangVien from "./pages/Teacher/KhoNoiDungGiangVien";
-import NganHangCauHoiGiaoVien from "./pages/Teacher/NganHangCauHoiGiaoVien";
-import NganHangEThiGiangVien from "./pages/Teacher/NganHangEThiGiangVien";
-import NganHangEThiGiaoVienVietHoa from "./pages/Teacher/NganHangEThiGiaoVienVietHoa";
-import QuanLyEThiGiaoVien from "./pages/Teacher/QuanLyEThiGiaoVien";
-import TongHopKetQuaLopHocGiaoVien from "./pages/Teacher/TongHopKetQuaLopHocGiaoVien";
-import ChiTietLopHocSinhVienVietHoaFontMoi from "./pages/Student/ChiTietLopHocSinhVienVietHoaFontMoi";
-import DashboardSinhVienDhdeduAzotaStyle from "./pages/Student/DashboardSinhVienDhdeduAzotaStyle";
-import HocFlashcardDhdedu from "./pages/Student/HocFlashcardDhdedu";
-import HocFlashcardDhdeduVietHoa from "./pages/Student/HocFlashcardDhdeduVietHoa";
-import LamBaiTrucTuyenDhdeduVietHoa from "./pages/Student/LamBaiTrucTuyenDhdeduVietHoa";
-import LamBaiTrucTuyenSinhVien from "./pages/Student/LamBaiTrucTuyenSinhVien";
-import LichSuLamBaiChiTietSinhVien from "./pages/Student/LichSuLamBaiChiTietSinhVien";
-import LuyenTapTracNghiemSinhVien from "./pages/Student/LuyenTapTracNghiemSinhVien";
-import NganHangBaiThiThuSinhVien from "./pages/Student/NganHangBaiThiThuSinhVien";
-import ThongKeHocTapChiTietSinhVien from "./pages/Student/ThongKeHocTapChiTietSinhVien";
-import TongQuanNguoiHocDhdeduVietHoaFontMoi from "./pages/Student/TongQuanNguoiHocDhdeduVietHoaFontMoi";
-import TongQuanNguoiHocVietHoa from "./pages/Student/TongQuanNguoiHocVietHoa";
-import XemLaiBaiLamChiTietSinhVien from "./pages/Student/XemLaiBaiLamChiTietSinhVien";
-import XemLaiBaiLamSinhVienVietHoaFontMoi from "./pages/Student/XemLaiBaiLamSinhVienVietHoaFontMoi";
-import XemTruocBaiThiSinhVien from "./pages/Student/XemTruocBaiThiSinhVien";
-import BaoMatPhanQuyenDhdeduVietHoa from "./pages/Common/BaoMatPhanQuyenDhdeduVietHoa";
-import CaiAtBaoMat2LopDhdedu from "./pages/Common/CaiAtBaoMat2LopDhdedu";
-import ChiTietLopHocDhdeduAzotaStyle from "./pages/Common/ChiTietLopHocDhdeduAzotaStyle";
-import ChiTietLopHocVietHoa from "./pages/Common/ChiTietLopHocVietHoa";
-import HoSoCaNhanDhdedu from "./pages/Common/HoSoCaNhanDhdedu";
-import HoSoCaNhanDhdeduVietHoa from "./pages/Common/HoSoCaNhanDhdeduVietHoa";
-import LuyenTapTracNghiemDhdeduVietHoa from "./pages/Common/LuyenTapTracNghiemDhdeduVietHoa";
-import PhanTichVaKeHoachTaiTaoGiaoDienDhdedu from "./pages/Common/PhanTichVaKeHoachTaiTaoGiaoDienDhdedu";
-import QuanLyNguoiDungDhdeduVietHoa from "./pages/Common/QuanLyNguoiDungDhdeduVietHoa";
-import XemTruocBaiThiDhdeduVietHoa from "./pages/Common/XemTruocBaiThiDhdeduVietHoa";
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectProfile, selectIsAuthenticated } from './features/authentication/authenticationSlice';
 
-function App() {
-  return (
-    <BrowserRouter>
+// ── Auth pages (eager — needed immediately) ──────────────────
+import LoginPage from './pages/Auth/LoginPage';
+
+// ── Lazy load all feature pages ──────────────────────────────
+// Admin
+const AdminDashboard    = lazy(() => import('./pages/Admin/Dashboard'));
+const UserManagement    = lazy(() => import('./pages/Admin/UserManagement'));
+const AdminSecurity     = lazy(() => import('./pages/Admin/Security'));
+const SystemSettings    = lazy(() => import('./pages/Admin/SystemSettings'));
+
+// Teacher
+const TeacherDashboard  = lazy(() => import('./pages/Teacher/Dashboard'));
+const ClassManagement   = lazy(() => import('./pages/Teacher/ClassManagement'));
+const ExamBank          = lazy(() => import('./pages/Teacher/ExamBank'));
+const QuestionBank      = lazy(() => import('./pages/Teacher/QuestionBank'));
+const MaterialLibrary   = lazy(() => import('./pages/Teacher/MaterialLibrary'));
+const TeacherReports    = lazy(() => import('./pages/Teacher/Reports'));
+const ExamMatrices      = lazy(() => import('./pages/Teacher/ExamMatrices'));
+
+// Student
+const StudentDashboard  = lazy(() => import('./pages/Student/Dashboard'));
+const StudentClasses    = lazy(() => import('./pages/Student/Classes'));
+const ExamList          = lazy(() => import('./pages/Student/ExamList'));
+const ExamTaking        = lazy(() => import('./pages/Student/ExamTaking'));
+const ExamReview        = lazy(() => import('./pages/Student/ExamReview'));
+const ExamHistory       = lazy(() => import('./pages/Student/ExamHistory'));
+const Practice          = lazy(() => import('./pages/Student/Practice'));
+const Flashcards        = lazy(() => import('./pages/Student/Flashcards'));
+const MockExams         = lazy(() => import('./pages/Student/MockExams'));
+const Statistics        = lazy(() => import('./pages/Student/Statistics'));
+
+// Common
+const Profile           = lazy(() => import('./pages/Common/Profile'));
+
+// ── Loading fallback ─────────────────────────────────────────
+const PageLoader = () => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <p className="text-sm text-slate-400 font-medium">Đang tải...</p>
+    </div>
+  </div>
+);
+
+// ── Route guards ─────────────────────────────────────────────
+const RequireAuth = ({ children, allowedRoles }) => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const profile         = useSelector(selectProfile);
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (allowedRoles && profile?.role && !allowedRoles.includes(profile.role)) {
+    // Redirect to correct dashboard for the user's role
+    const roleHome = { ADMIN: '/admin/dashboard', TEACHER: '/teacher/dashboard', STUDENT: '/student/dashboard' };
+    return <Navigate to={roleHome[profile.role] ?? '/login'} replace />;
+  }
+  return children;
+};
+
+const RequireGuest = ({ children }) => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const profile         = useSelector(selectProfile);
+
+  if (!isAuthenticated) return children;
+  const roleHome = { ADMIN: '/admin/dashboard', TEACHER: '/teacher/dashboard', STUDENT: '/student/dashboard' };
+  return <Navigate to={roleHome[profile?.role] ?? '/student/dashboard'} replace />;
+};
+
+// ── App ──────────────────────────────────────────────────────
+const App = () => (
+  <BrowserRouter>
+    <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/admin/dashboard" />} />
-        <Route
-          path="/admin/securityadmin"
-          element={<BaoMatPhanQuyenQuanTriVien />}
-        />
-        <Route
-          path="/admin/system-settingsadmin"
-          element={<CaiAtHeThongQuanTriVien />}
-        />
-        <Route
-          path="/admin/dashboardadmin-dhdedu"
-          element={<DashboardQuanTriVienDhdedu />}
-        />
-        <Route
-          path="/admin/dashboardadmin-dhdedu-viet-hoa-font-moi"
-          element={<DashboardQuanTriVienDhdeduVietHoaFontMoi />}
-        />
-        <Route
-          path="/admin/usersadmin"
-          element={<QuanLyNguoiDungQuanTriVien />}
-        />
-        <Route
-          path="/teacher/bao-caoclass-detailsteacher"
-          element={<BaoCaoChiTietLopHocGiaoVien />}
-        />
-        <Route
-          path="/teacher/reportsteacher"
-          element={<BaoCaoThongKeGiaoVien />}
-        />
-        <Route
-          path="/teacher/exam-matrix-configteacher"
-          element={<CauHinhMaTranEThiGiangVien />}
-        />
-        <Route
-          path="/teacher/gradingteacher-mo-rong-khung-bai-lam"
-          element={<ChamBaiGiaoVienMoRongKhungBaiLam />}
-        />
-        <Route
-          path="/teacher/class-detailsteacher"
-          element={<ChiTietLopHocGiaoVien />}
-        />
-        <Route
-          path="/teacher/exam-matrixteacher"
-          element={<DanhSachMaTranEThiGiangVien />}
-        />
-        <Route
-          path="/teacher/dashboardteacher-dhdedu"
-          element={<DashboardGiaoVienDhdedu />}
-        />
-        <Route
-          path="/teacher/dashboardteacher-dhdedu-ong-bo-azota"
-          element={<DashboardGiaoVienDhdeduOngBoAzota />}
-        />
-        <Route
-          path="/teacher/dashboardteacher-dhdedu-viet-hoa-font-moi"
-          element={<DashboardGiaoVienDhdeduVietHoaFontMoi />}
-        />
-        <Route
-          path="/teacher/dashboardteacher-ong-bo-ui"
-          element={<DashboardGiaoVienOngBoUi />}
-        />
-        <Route
-          path="/teacher/content-libraryteacher"
-          element={<KhoNoiDungGiangVien />}
-        />
-        <Route
-          path="/teacher/question-bankteacher"
-          element={<NganHangCauHoiGiaoVien />}
-        />
-        <Route
-          path="/teacher/exam-bankteacher"
-          element={<NganHangEThiGiangVien />}
-        />
-        <Route
-          path="/teacher/exam-bankteacher-viet-hoa"
-          element={<NganHangEThiGiaoVienVietHoa />}
-        />
-        <Route path="/teacher/examsteacher" element={<QuanLyEThiGiaoVien />} />
-        <Route
-          path="/teacher/reports-lop-hocteacher"
-          element={<TongHopKetQuaLopHocGiaoVien />}
-        />
-        <Route
-          path="/student/class-detailsstudent-viet-hoa-font-moi"
-          element={<ChiTietLopHocSinhVienVietHoaFontMoi />}
-        />
-        <Route
-          path="/student/dashboardstudent-dhdedu-azota-style"
-          element={<DashboardSinhVienDhdeduAzotaStyle />}
-        />
-        <Route
-          path="/student/flashcards-dhdedu"
-          element={<HocFlashcardDhdedu />}
-        />
-        <Route
-          path="/student/flashcards-dhdedu-viet-hoa"
-          element={<HocFlashcardDhdeduVietHoa />}
-        />
-        <Route
-          path="/student/online-exam-dhdedu-viet-hoa"
-          element={<LamBaiTrucTuyenDhdeduVietHoa />}
-        />
-        <Route
-          path="/student/online-examstudent"
-          element={<LamBaiTrucTuyenSinhVien />}
-        />
-        <Route
-          path="/student/history-chi-tietstudent"
-          element={<LichSuLamBaiChiTietSinhVien />}
-        />
-        <Route
-          path="/student/practicestudent"
-          element={<LuyenTapTracNghiemSinhVien />}
-        />
-        <Route
-          path="/student/mock-examsstudent"
-          element={<NganHangBaiThiThuSinhVien />}
-        />
-        <Route
-          path="/student/statistics-chi-tietstudent"
-          element={<ThongKeHocTapChiTietSinhVien />}
-        />
-        <Route
-          path="/student/overviewstudent-dhdedu-viet-hoa-font-moi"
-          element={<TongQuanNguoiHocDhdeduVietHoaFontMoi />}
-        />
-        <Route
-          path="/student/overviewstudent-viet-hoa"
-          element={<TongQuanNguoiHocVietHoa />}
-        />
-        <Route
-          path="/student/review-chi-tietstudent"
-          element={<XemLaiBaiLamChiTietSinhVien />}
-        />
-        <Route
-          path="/student/reviewstudent-viet-hoa-font-moi"
-          element={<XemLaiBaiLamSinhVienVietHoaFontMoi />}
-        />
-        <Route
-          path="/student/previewstudent"
-          element={<XemTruocBaiThiSinhVien />}
-        />
-        <Route
-          path="/common/security-dhdedu-viet-hoa"
-          element={<BaoMatPhanQuyenDhdeduVietHoa />}
-        />
-        <Route path="/common/2fa-dhdedu" element={<CaiAtBaoMat2LopDhdedu />} />
-        <Route
-          path="/common/class-details-dhdedu-azota-style"
-          element={<ChiTietLopHocDhdeduAzotaStyle />}
-        />
-        <Route
-          path="/common/class-details-viet-hoa"
-          element={<ChiTietLopHocVietHoa />}
-        />
-        <Route path="/common/profile-dhdedu" element={<HoSoCaNhanDhdedu />} />
-        <Route
-          path="/common/profile-dhdedu-viet-hoa"
-          element={<HoSoCaNhanDhdeduVietHoa />}
-        />
-        <Route
-          path="/common/practice-dhdedu-viet-hoa"
-          element={<LuyenTapTracNghiemDhdeduVietHoa />}
-        />
-        <Route
-          path="/common/phan-tich-va-ke-hoach-tai-tao-giao-dien-dhdedu"
-          element={<PhanTichVaKeHoachTaiTaoGiaoDienDhdedu />}
-        />
-        <Route
-          path="/common/users-dhdedu-viet-hoa"
-          element={<QuanLyNguoiDungDhdeduVietHoa />}
-        />
-        <Route
-          path="/common/preview-dhdedu-viet-hoa"
-          element={<XemTruocBaiThiDhdeduVietHoa />}
-        />
+        {/* Root redirect */}
+        <Route path="/" element={<RootRedirect />} />
+
+        {/* Auth */}
+        <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
+
+        {/* ─── Admin ───────────────────────────────────────── */}
+        <Route path="/admin" element={<RequireAuth allowedRoles={['ADMIN']}><Navigate to="/admin/dashboard" replace /></RequireAuth>} />
+        <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['ADMIN']}><AdminDashboard /></RequireAuth>} />
+        <Route path="/admin/users"     element={<RequireAuth allowedRoles={['ADMIN']}><UserManagement /></RequireAuth>} />
+        <Route path="/admin/security"  element={<RequireAuth allowedRoles={['ADMIN']}><AdminSecurity /></RequireAuth>} />
+        <Route path="/admin/settings"  element={<RequireAuth allowedRoles={['ADMIN']}><SystemSettings /></RequireAuth>} />
+
+        {/* ─── Teacher ─────────────────────────────────────── */}
+        <Route path="/teacher" element={<RequireAuth allowedRoles={['TEACHER']}><Navigate to="/teacher/dashboard" replace /></RequireAuth>} />
+        <Route path="/teacher/dashboard"     element={<RequireAuth allowedRoles={['TEACHER']}><TeacherDashboard /></RequireAuth>} />
+        <Route path="/teacher/classes"       element={<RequireAuth allowedRoles={['TEACHER']}><ClassManagement /></RequireAuth>} />
+        <Route path="/teacher/exams"         element={<RequireAuth allowedRoles={['TEACHER']}><ExamBank /></RequireAuth>} />
+        <Route path="/teacher/questions"     element={<RequireAuth allowedRoles={['TEACHER']}><QuestionBank /></RequireAuth>} />
+        <Route path="/teacher/materials"     element={<RequireAuth allowedRoles={['TEACHER']}><MaterialLibrary /></RequireAuth>} />
+        <Route path="/teacher/reports"       element={<RequireAuth allowedRoles={['TEACHER']}><TeacherReports /></RequireAuth>} />
+        <Route path="/teacher/exam-matrices" element={<RequireAuth allowedRoles={['TEACHER']}><ExamMatrices /></RequireAuth>} />
+
+        {/* ─── Student ─────────────────────────────────────── */}
+        <Route path="/student" element={<RequireAuth allowedRoles={['STUDENT']}><Navigate to="/student/dashboard" replace /></RequireAuth>} />
+        <Route path="/student/dashboard"   element={<RequireAuth allowedRoles={['STUDENT']}><StudentDashboard /></RequireAuth>} />
+        <Route path="/student/classes"     element={<RequireAuth allowedRoles={['STUDENT']}><StudentClasses /></RequireAuth>} />
+        <Route path="/student/exams"       element={<RequireAuth allowedRoles={['STUDENT']}><ExamList /></RequireAuth>} />
+        <Route path="/student/exams/take"  element={<RequireAuth allowedRoles={['STUDENT']}><ExamTaking /></RequireAuth>} />
+        <Route path="/student/exams/review" element={<RequireAuth allowedRoles={['STUDENT']}><ExamReview /></RequireAuth>} />
+        <Route path="/student/history"     element={<RequireAuth allowedRoles={['STUDENT']}><ExamHistory /></RequireAuth>} />
+        <Route path="/student/practice"    element={<RequireAuth allowedRoles={['STUDENT']}><Practice /></RequireAuth>} />
+        <Route path="/student/flashcards"  element={<RequireAuth allowedRoles={['STUDENT']}><Flashcards /></RequireAuth>} />
+        <Route path="/student/mock-exams"  element={<RequireAuth allowedRoles={['STUDENT']}><MockExams /></RequireAuth>} />
+        <Route path="/student/statistics"  element={<RequireAuth allowedRoles={['STUDENT']}><Statistics /></RequireAuth>} />
+
+        {/* ─── Common (any authenticated user) ─────────────── */}
+        <Route path="/common/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+
+        {/* Catch-all */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
-    </BrowserRouter>
-  );
-}
+    </Suspense>
+  </BrowserRouter>
+);
+
+// ── Helpers ──────────────────────────────────────────────────
+const RootRedirect = () => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const profile         = useSelector(selectProfile);
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const roleHome = { ADMIN: '/admin/dashboard', TEACHER: '/teacher/dashboard', STUDENT: '/student/dashboard' };
+  return <Navigate to={roleHome[profile?.role] ?? '/login'} replace />;
+};
+
+const NotFound = () => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="text-center max-w-sm">
+      <p className="text-8xl font-black text-slate-200 mb-4">404</p>
+      <h1 className="text-2xl font-black text-slate-800 mb-2">Trang không tìm thấy</h1>
+      <p className="text-slate-500 mb-6">Trang bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
+      <a href="/" className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition">
+        Về trang chủ
+      </a>
+    </div>
+  </div>
+);
 
 export default App;
