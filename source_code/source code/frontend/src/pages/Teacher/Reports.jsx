@@ -8,10 +8,10 @@ import { coursesService, submissionsService } from '../../services/supabaseServi
 
 const Reports = () => {
   const profile = useSelector(selectProfile);
-  const [courses,  setCourses]  = useState([]);
-  const [stats,    setStats]    = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const load = async () => {
     if (!profile?.id) return;
@@ -23,15 +23,15 @@ const Reports = () => {
     ]);
 
     const courseList = courseRes.data ?? [];
-    const pending    = pendingRes.data ?? [];
+    const pending = pendingRes.data ?? [];
 
     const totalStudents = courseList.reduce((a, c) =>
-      a + (c.classes ?? []).reduce((a2, cls) => a2 + (cls.student_classes?.[0]?.count ?? 0), 0), 0);
+      a + (c.classes ?? []).reduce((a2, cls) => a2 + (cls.student_classes?.length ?? 0), 0), 0);
 
     setStats({
-      totalCourses:  courseList.length,
+      totalCourses: courseList.length,
       totalStudents,
-      pendingGrade:  pending.length,
+      pendingGrade: pending.length,
     });
     setCourses(courseList);
     setLoading(false);
@@ -53,7 +53,7 @@ const Reports = () => {
       <Card>
         <CardHeader title="Chi tiết theo khóa học" />
         {loading ? (
-          <div className="p-6 space-y-3">{[1,2,3].map(i => <Sk key={i} className="h-16 w-full" />)}</div>
+          <div className="p-6 space-y-3">{[1, 2, 3].map(i => <Sk key={i} className="h-16 w-full" />)}</div>
         ) : courses.length === 0 ? (
           <EmptyState icon="school" title="Chưa có khóa học nào" />
         ) : (
@@ -67,10 +67,9 @@ const Reports = () => {
             </div>
             <div className="divide-y divide-slate-50">
               {courses.map(course => {
-                const classCount    = (course.classes ?? []).length;
-                const studentCount  = (course.classes ?? []).reduce((a, cls) => {
-                  const cnt = cls.student_classes?.[0]?.count ?? 0;
-                  return a + (typeof cnt === 'number' ? cnt : parseInt(cnt) || 0);
+                const classCount = (course.classes ?? []).length;
+                const studentCount = (course.classes ?? []).reduce((a, cls) => {
+                  return a + (cls.student_classes?.length ?? 0);
                 }, 0);
                 return (
                   <div key={course.id} className="px-6 py-4 grid grid-cols-12 gap-4 items-center hover:bg-slate-50 transition-colors">

@@ -11,11 +11,11 @@ import { coursesService, examsService, submissionsService, questionsService } fr
 
 const TeacherDashboard = () => {
   const profile = useSelector(selectProfile);
-  const [stats,       setStats]       = useState(null);
-  const [courses,     setCourses]     = useState([]);
+  const [stats, setStats] = useState(null);
+  const [courses, setCourses] = useState([]);
   const [recentExams, setRecentExams] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const load = async () => {
     if (!profile?.id) return;
@@ -30,22 +30,22 @@ const TeacherDashboard = () => {
       ]);
 
       const courseList = courseRes.data ?? [];
-      const examList   = examRes.data  ?? [];
-      const pending    = pendingRes.data ?? [];
+      const examList = examRes.data ?? [];
+      const pending = pendingRes.data ?? [];
 
       // Count total students across all classes of all courses
       const studentCount = courseList.reduce((acc, c) => {
         return acc + (c.classes ?? []).reduce((a2, cls) => {
-          const cnt = cls.student_classes?.[0]?.count ?? 0;
+          const cnt = cls.student_classes?.length ?? 0;
           return a2 + (typeof cnt === 'number' ? cnt : parseInt(cnt) || 0);
         }, 0);
       }, 0);
 
       setStats({
-        totalCourses:  courseList.length,
+        totalCourses: courseList.length,
         totalStudents: studentCount,
-        totalExams:    examList.length,
-        pendingGrade:  pending.length,
+        totalExams: examList.length,
+        pendingGrade: pending.length,
         totalQuestions: qCountRes.data ?? 0,
       });
       setCourses(courseList.slice(0, 4));
@@ -75,10 +75,10 @@ const TeacherDashboard = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard icon="school"      iconBg="bg-blue-50 text-blue-600"    label="Tổng số khóa học"  value={stats?.totalCourses}   loading={loading} />
-        <StatCard icon="group"       iconBg="bg-cyan-50 text-cyan-600"    label="Tổng số sinh viên" value={stats?.totalStudents}  loading={loading} />
-        <StatCard icon="quiz"        iconBg="bg-orange-50 text-orange-600" label="Số đề thi"        value={stats?.totalExams}     loading={loading} />
-        <StatCard icon="rate_review" iconBg="bg-purple-50 text-purple-600" label="Chờ chấm bài"    value={stats?.pendingGrade}   loading={loading} sub="bài nộp chờ chấm" />
+        <StatCard icon="school" iconBg="bg-blue-50 text-blue-600" label="Tổng số khóa học" value={stats?.totalCourses} loading={loading} />
+        <StatCard icon="group" iconBg="bg-cyan-50 text-cyan-600" label="Tổng số sinh viên" value={stats?.totalStudents} loading={loading} />
+        <StatCard icon="quiz" iconBg="bg-orange-50 text-orange-600" label="Số đề thi" value={stats?.totalExams} loading={loading} />
+        <StatCard icon="rate_review" iconBg="bg-purple-50 text-purple-600" label="Chờ chấm bài" value={stats?.pendingGrade} loading={loading} sub="bài nộp chờ chấm" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -89,14 +89,14 @@ const TeacherDashboard = () => {
             action={<Link to="/teacher/classes" className="text-primary text-sm font-semibold hover:underline">Xem tất cả</Link>}
           />
           {loading ? (
-            <div className="p-6 space-y-4">{[1,2,3].map(i => <Sk key={i} className="h-16 w-full" />)}</div>
+            <div className="p-6 space-y-4">{[1, 2, 3].map(i => <Sk key={i} className="h-16 w-full" />)}</div>
           ) : courses.length === 0 ? (
             <EmptyState icon="school" title="Bạn chưa có khóa học nào" subtitle="Tạo khóa học mới để bắt đầu giảng dạy." />
           ) : (
             <div className="divide-y divide-slate-100">
               {courses.map(course => {
                 const totalStudents = (course.classes ?? []).reduce((a, cls) => {
-                  const cnt = cls.student_classes?.[0]?.count ?? 0;
+                  const cnt = cls.student_classes?.length ?? 0;
                   return a + (typeof cnt === 'number' ? cnt : parseInt(cnt) || 0);
                 }, 0);
                 const classCount = (course.classes ?? []).length;
@@ -129,7 +129,7 @@ const TeacherDashboard = () => {
             action={<Link to="/teacher/exams" className="text-primary text-sm font-semibold hover:underline">Xem tất cả</Link>}
           />
           {loading ? (
-            <div className="p-6 space-y-3">{[1,2,3].map(i => <Sk key={i} className="h-12 w-full" />)}</div>
+            <div className="p-6 space-y-3">{[1, 2, 3].map(i => <Sk key={i} className="h-12 w-full" />)}</div>
           ) : recentExams.length === 0 ? (
             <EmptyState icon="quiz" title="Chưa có đề thi nào" subtitle="Tạo đề thi mới để bắt đầu." />
           ) : (

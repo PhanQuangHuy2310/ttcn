@@ -22,31 +22,25 @@ CREATE TABLE public.users (
 -- Trigger to create user profile on signup (Cập nhật logic check teacher)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
-DECLARE
-  is_teacher_boolean BOOLEAN := false;
 BEGIN
-  IF NEW.raw_user_meta_data ? 'is_teacher' THEN
-    is_teacher_boolean := (NEW.raw_user_meta_data->>'is_teacher')::boolean;
-  END IF;
-
-  INSERT INTO public.users (id, email, full_name, role)
+  INSERT INTO public.users (id, email, full_name, role, teacher_code)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     CASE 
-      WHEN is_teacher_boolean THEN 'TEACHER'
+      WHEN (NEW.raw_user_meta_data->>'is_teacher')::boolean THEN 'TEACHER'
       ELSE 'STUDENT'
+    END,
+    CASE 
+      WHEN (NEW.raw_user_meta_data->>'is_teacher')::boolean 
+      THEN NEW.raw_user_meta_data->>'teacher_code'
+      ELSE NULL
     END
   )
   ON CONFLICT (id) DO NOTHING;
-
+  
   RETURN NEW;
-
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE WARNING 'handle_new_user error: %', SQLERRM;
-    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -532,17 +526,82 @@ GRANT ALL ON TABLES TO service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT ALL ON SEQUENCES TO service_role;
 
-create policy "service role full access"
-on users
-for all
-using (true)
-with check (true);
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
-insert into public.users (id, email, full_name, role)
-select
-  id,
-  email,
-  'Quản Trị Viên',
-  'ADMIN'
-from auth.users
-where email = 'admin@dhdedu.edu.vn';
+CREATE POLICY "select own profile"
+ON public.users
+FOR SELECT
+USING (auth.uid() = id);
+
+CREATE POLICY "update own profile"
+ON public.users
+FOR UPDATE
+USING (auth.uid() = id);
+
+CREATE POLICY "admin full access"
+ON public.users
+FOR ALL
+USING (
+  auth.jwt()->>'email' = 'admin@dhdedu.edu.vn'
+)
+WITH CHECK (
+  auth.jwt()->>'email' = 'admin@dhdedu.edu.vn'
+);
+
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT USAGE ON SCHEMA public TO anon;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO authenticated;
+
+GRANT SELECT
+ON ALL TABLES IN SCHEMA public
+TO anon;
+
+GRANT USAGE, SELECT
+ON ALL SEQUENCES IN SCHEMA public
+TO authenticated;
+
+CREATE POLICY "Teachers manage own courses"
+ON public.courses
+FOR ALL
+USING (teacher_id = auth.uid());
+
+CREATE POLICY "Authenticated view courses"
+ON public.courses
+FOR SELECT
+USING (true);
+CREATE POLICY "Teacher own classes"
+ON public.classes
+FOR ALL
+USING (true);
+CREATE POLICY "Own enrollments"
+ON public.student_classes
+FOR SELECT
+USING (student_id = auth.uid());
+
+ALTER TABLE public.courses DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.classes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_classes DISABLE ROW LEVEL SECURITY;
+
+CREATE TYPE exam_status AS ENUM (
+  'DRAFT',
+  'UPCOMING',
+  'ACTIVE',
+  'ENDED'
+);
+
+ALTER TABLE public.exams
+ADD COLUMN status exam_status DEFAULT 'UPCOMING';
+
+ALTER TABLE student_classes
+DROP CONSTRAINT student_classes_student_id_fkey;
+
+ALTER TABLE student_classes
+ADD CONSTRAINT student_classes_student_id_fkey
+FOREIGN KEY (student_id)
+REFERENCES public.users(id)
+ON DELETE CASCADE;
+
+NOTIFY pgrst, 'reload schema';

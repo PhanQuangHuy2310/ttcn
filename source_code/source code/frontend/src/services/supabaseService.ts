@@ -1,322 +1,719 @@
 // src/services/supabaseService.ts
-// Centralized data access layer. All pages import from here — never from supabase directly.
-// Fixes: scattered raw queries, wrong table columns, missing teacher_id on classes, missing progress on student_classes.
+// DHDedu - Clean version matched with your Supabase schema
 
 import { supabase } from '../lib/supabase';
 import { SUPABASE_TABLES } from '../constant/apiEndpoints';
 
-// ─── TYPE HELPERS ────────────────────────────────────────────
+export type ServiceResult<T> = {
+  data: T | null;
+  error: string | null;
+};
 
-export type ServiceResult<T> = { data: T | null; error: string | null };
+// ================= COMMON =================
 
-async function run<T>(promise: Promise<{ data: T | null; error: { message: string } | null }>): Promise<ServiceResult<T>> {
-  const { data, error } = await promise;
-  return { data: error ? null : data, error: error?.message ?? null };
+async function run<T>(query: any): Promise<ServiceResult<T>> {
+  const { data, error } = await query;
+  return {
+    data: error ? null : data,
+    error: error?.message ?? null,
+  };
 }
 
-// ─── USERS ───────────────────────────────────────────────────
+async function countRows(table: string): Promise<ServiceResult<number>> {
+  const { count, error } = await supabase
+    .from(table)
+    .select('*', { count: 'exact', head: true });
+
+  return {
+    data: error ? null : count ?? 0,
+    error: error?.message ?? null,
+  };
+}
+
+// ================= USERS =================
 
 export const usersService = {
-  getAll: () => run(supabase.from(SUPABASE_TABLES.USERS).select('id, full_name, email, role, student_id, teacher_code, created_at').order('created_at', { ascending: false })),
+  getAll: () =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.USERS)
+        .select('*')
+        .order('created_at', { ascending: false })
+    ),
 
-  getRecent: (limit = 5) => run(supabase.from(SUPABASE_TABLES.USERS).select('id, full_name, email, role, created_at').order('created_at', { ascending: false }).limit(limit)),
+  getRecent: (limit = 5) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.USERS)
+        .select('id,full_name,email,role,created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+    ),
+
+  getById: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.USERS)
+        .select('*')
+        .eq('id', id)
+        .single()
+    ),
 
   countByRole: async () => {
-    const { data, error } = await supabase.from(SUPABASE_TABLES.USERS).select('id, role');
+    const { data, error } = await supabase
+      .from(SUPABASE_TABLES.USERS)
+      .select('role');
+
     if (error) return { data: null, error: error.message };
-    const users = data ?? [];
+
+    const users = data || [];
+
     return {
       data: {
-        total:    users.length,
-        admins:   users.filter(u => u.role === 'ADMIN').length,
-        teachers: users.filter(u => u.role === 'TEACHER').length,
-        students: users.filter(u => u.role === 'STUDENT').length,
+        total: users.length,
+        admins: users.filter(x => x.role === 'ADMIN').length,
+        teachers: users.filter(x => x.role === 'TEACHER').length,
+        students: users.filter(x => x.role === 'STUDENT').length,
       },
       error: null,
     };
   },
 
-  updateProfile: (userId: string, updates: { full_name?: string; student_id?: string; teacher_code?: string }) =>
-    run(supabase.from(SUPABASE_TABLES.USERS).update(updates).eq('id', userId).select().single()),
+  updateProfile: (id: string, payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.USERS)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
 
-  deleteUser: (userId: string) =>
-    run(supabase.from(SUPABASE_TABLES.USERS).delete().eq('id', userId)),
+  deleteUser: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.USERS)
+        .delete()
+        .eq('id', id)
+    ),
 };
 
-// ─── COURSES (maps to what frontend calls "classes" — schema clarification) ──
-// The DB has: courses (teacher_id, name, subject, semester) → classes (course_id, code, academic_year) → student_classes
-// Frontend was querying classes.teacher_id which doesn't exist. Fix: query courses + join classes.
+// ================= COURSES =================
 
 export const coursesService = {
-  // Teacher: get all courses owned by this teacher with student count via student_classes
+  getAll: () =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.COURSES)
+        .select('*')
+        .order('created_at', { ascending: false })
+    ),
+
   getByTeacher: (teacherId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.COURSES)
-        .select('id, name, subject, semester, grade_level, created_at, classes(id, code, max_student, academic_year, student_classes(count))')
+        .select(`
+        id,
+        name,
+        subject,
+        semester,
+        created_at,
+        classes(
+          id,
+          code,
+          academic_year,
+          student_classes(
+            id
+          )
+        )
+      `)
         .eq('teacher_id', teacherId)
         .order('created_at', { ascending: false })
     ),
 
-  getById: (courseId: string) =>
-    run(supabase.from(SUPABASE_TABLES.COURSES).select('*, classes(*, student_classes(count))').eq('id', courseId).single()),
+  getById: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.COURSES)
+        .select('*')
+        .eq('id', id)
+        .single()
+    ),
 
-  // Admin: total count
-  countAll: () =>
-    run(supabase.from(SUPABASE_TABLES.COURSES).select('id', { count: 'exact', head: true })),
+  countAll: () => countRows(SUPABASE_TABLES.COURSES),
+
+  create: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.COURSES)
+        .insert(payload)
+        .select()
+        .single()
+    ),
+
+  update: (id: string, payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.COURSES)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
+
+  delete: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.COURSES)
+        .delete()
+        .eq('id', id)
+    ),
 };
 
-// ─── CLASSES ─────────────────────────────────────────────────
+// ================= CLASSES =================
 
 export const classesService = {
-  // Get classes for a course with enrolled students
-  getByCourse: (courseId: string) =>
+  getAll: () =>
     run(
       supabase
         .from(SUPABASE_TABLES.CLASSES)
-        .select('id, name, code, max_student, academic_year, student_classes(id, student_id, enrolled_at, users(id, full_name, email, student_id))')
-        .eq('course_id', courseId)
+        .select('*')
     ),
-
-  // Student: get all classes the student is enrolled in
   getEnrolledByStudent: (studentId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.STUDENT_CLASSES)
-        .select('id, enrolled_at, class_id, classes(id, name, code, academic_year, courses(id, name, subject, semester, teacher_id, users!courses_teacher_id_fkey(full_name)))')
+        .select(`
+        id,
+        enrolled_at,
+        class_id,
+        classes(
+          id,
+          name,
+          code,
+          academic_year,
+          courses(
+            id,
+            name,
+            subject,
+            semester,
+            teacher_id,
+            users(full_name)
+          )
+        )
+      `)
         .eq('student_id', studentId)
         .order('enrolled_at', { ascending: false })
     ),
+  getByCourse: async (courseId: string) => {
+    const { data, error } = await supabase
+      .from("classes")
+      .select(`
+      id,
+      name,
+      code,
 
-  countAll: () =>
-    run(supabase.from(SUPABASE_TABLES.CLASSES).select('id', { count: 'exact', head: true })),
+      student_classes (
+        id,
+        student_id,
+        enrolled_at,
+
+        users!student_classes_student_id_fkey (
+          id,
+          full_name,
+          email,
+          student_id
+        )
+      )
+    `)
+      .eq("course_id", courseId);
+
+    return {
+      data: error ? null : data,
+      error: error?.message ?? null
+    };
+  },
+  countAll: () => countRows(SUPABASE_TABLES.CLASSES),
 };
 
-// ─── EXAMS ───────────────────────────────────────────────────
+// ================= STUDENT_CLASSES =================
+
+export const studentClassesService = {
+  getByStudent: (studentId: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.STUDENT_CLASSES)
+        .select('*')
+        .eq('student_id', studentId)
+    ),
+
+  enroll: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.STUDENT_CLASSES)
+        .insert(payload)
+    ),
+};
+
+// ================= EXAMS =================
 
 export const examsService = {
-  // Teacher: get exams by teacher (via courses.teacher_id)
-  getByTeacher: (teacherId: string, limit?: number) => {
-    let q = supabase
-      .from(SUPABASE_TABLES.EXAMS)
-      .select('id, title, start_time, duration, status, created_at, course_id, class_id, courses!inner(id, name, teacher_id)')
-      .eq('courses.teacher_id', teacherId)
-      .order('created_at', { ascending: false });
-    if (limit) q = q.limit(limit);
-    return run(q);
-  },
-
+  getAll: () =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.EXAMS)
+        .select('*')
+        .order('created_at', { ascending: false })
+    ),
   getUpcoming: (limit = 5) =>
     run(
       supabase
         .from(SUPABASE_TABLES.EXAMS)
-        .select('id, title, start_time, duration, status, class_id, classes(name, courses(name, subject))')
+        .select(`
+        id,
+        title,
+        start_time,
+        duration,
+        class_id,
+        classes(name)
+      `)
         .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(limit)
     ),
+  getByTeacher: (teacherId: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.EXAMS)
+        .select(`
+        id,
+        title,
+        duration,
+        start_time,
+        status,
+        created_at,
+        courses!inner(
+          id,
+          name,
+          teacher_id
+        )
+      `)
+        .eq('courses.teacher_id', teacherId)
+        .order('created_at', { ascending: false })
+    ),
 
-  getById: (examId: string) =>
-    run(supabase.from(SUPABASE_TABLES.EXAMS).select('*, questions(*)').eq('id', examId).single()),
+  getById: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.EXAMS)
+        .select('*')
+        .eq('id', id)
+        .single()
+    ),
 
   countAll: async () => {
-    const { data, error } = await supabase.from(SUPABASE_TABLES.EXAMS).select('id, start_time, duration, status');
+    const { data, error } = await supabase
+      .from(SUPABASE_TABLES.EXAMS)
+      .select('id,start_time,duration');
+
     if (error) return { data: null, error: error.message };
-    const exams = data ?? [];
+
+    const exams = data || [];
     const now = new Date();
-    const active = exams.filter(e => {
+
+    const active = exams.filter((e: any) => {
       if (!e.start_time) return false;
-      const s = new Date(e.start_time);
-      const end = new Date(s.getTime() + (e.duration ?? 60) * 60000);
-      return now >= s && now <= end;
+      const start = new Date(e.start_time);
+      const end = new Date(start.getTime() + (e.duration || 60) * 60000);
+      return now >= start && now <= end;
     }).length;
-    return { data: { total: exams.length, active }, error: null };
+
+    return {
+      data: {
+        total: exams.length,
+        active,
+      },
+      error: null,
+    };
   },
 };
 
-// ─── QUESTIONS ───────────────────────────────────────────────
+// ================= QUESTIONS =================
 
 export const questionsService = {
   getByExam: (examId: string) =>
-    run(supabase.from(SUPABASE_TABLES.QUESTIONS).select('*').eq('exam_id', examId).order('created_at')),
-
-  // Teacher: all questions across teacher's exams
+    run(
+      supabase
+        .from(SUPABASE_TABLES.QUESTIONS)
+        .select('*')
+        .eq('exam_id', examId)
+    ),
   getByTeacher: (teacherId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.QUESTIONS)
-        .select('id, content, type, points, created_at, exams!inner(course_id, courses!inner(teacher_id))')
+        .select(`
+          id,
+          content,
+          type,
+          points,
+          created_at,
+          exams!inner(
+            id,
+            title,
+            courses!inner(
+              id,
+              teacher_id,
+              name
+            )
+          )
+        `)
         .eq('exams.courses.teacher_id', teacherId)
         .order('created_at', { ascending: false })
     ),
-
   countByTeacher: async (teacherId: string) => {
-    const { data, error } = await questionsService.getByTeacher(teacherId);
-    return { data: data ? data.length : null, error };
+    const { data, error } = await supabase
+      .from(SUPABASE_TABLES.QUESTIONS)
+      .select(`
+      id,
+      exams!inner(
+        courses!inner(
+          teacher_id
+        )
+      )
+    `)
+      .eq('exams.courses.teacher_id', teacherId);
+
+    return {
+      data: error ? null : (data?.length || 0),
+      error: error?.message ?? null
+    };
   },
 };
 
-// ─── SUBMISSIONS ─────────────────────────────────────────────
+// ================= SUBMISSIONS =================
 
 export const submissionsService = {
   getByStudent: (studentId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('id, status, score, started_at, submitted_at, time_spent, exam_id, exams(title, duration, class_id, classes(name))')
+        .select('*')
         .eq('student_id', studentId)
-        .order('created_at', { ascending: false })
     ),
-
-  getByExam: (examId: string) =>
-    run(
-      supabase
-        .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('id, status, score, submitted_at, student_id, users(full_name, email, student_id)')
-        .eq('exam_id', examId)
-        .order('submitted_at', { ascending: false })
-    ),
-
-  // Teacher: all pending (SUBMITTED, needs grading)
   getPendingByTeacher: (teacherId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('id, status, score, submitted_at, student_id, exam_id, exams!inner(title, course_id, courses!inner(teacher_id))')
-        .eq('exams.courses.teacher_id', teacherId)
+        .select(`
+        id,
+        status,
+        score,
+        submitted_at,
+        exams!inner(
+          title,
+          courses!inner(
+            teacher_id
+          )
+        )
+      `)
         .eq('status', 'SUBMITTED')
+        .eq('exams.courses.teacher_id', teacherId)
         .order('submitted_at', { ascending: false })
     ),
-
-  countAll: () =>
-    run(supabase.from(SUPABASE_TABLES.SUBMISSIONS).select('id, status')),
+  getByExam: (examId: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.SUBMISSIONS)
+        .select('*')
+        .eq('exam_id', examId)
+    ),
 
   studentStats: async (studentId: string) => {
     const { data, error } = await supabase
       .from(SUPABASE_TABLES.SUBMISSIONS)
-      .select('id, status, score')
+      .select('id,status,score')
       .eq('student_id', studentId);
-    if (error) return { data: null, error: error.message };
-    const subs = data ?? [];
-    const submitted = subs.filter(s => s.status === 'SUBMITTED');
-    const avgScore = submitted.length > 0
-      ? parseFloat((submitted.reduce((a, s) => a + (s.score ?? 0), 0) / submitted.length).toFixed(1))
-      : null;
-    return { data: { total: subs.length, submitted: submitted.length, avgScore }, error: null };
-  },
 
-  upsert: (submission: { exam_id: string; student_id: string; status: string; answers?: Record<string, string>; score?: number }) =>
-    run(supabase.from(SUPABASE_TABLES.SUBMISSIONS).upsert(submission, { onConflict: 'exam_id,student_id' }).select().single()),
+    if (error) return { data: null, error: error.message };
+
+    const rows = data || [];
+    const submitted = rows.filter(x => x.status === 'SUBMITTED');
+
+    const avgScore =
+      submitted.length > 0
+        ? (
+          submitted.reduce((a, b) => a + (b.score || 0), 0) /
+          submitted.length
+        ).toFixed(1)
+        : null;
+
+    return {
+      data: {
+        total: rows.length,
+        submitted: submitted.length,
+        avgScore,
+      },
+      error: null,
+    };
+  },
+  countAll: () =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.SUBMISSIONS)
+        .select('*')
+    ),
+
+  upsert: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.SUBMISSIONS)
+        .upsert(payload, {
+          onConflict: 'exam_id,student_id',
+        })
+        .select()
+        .single()
+    ),
 };
 
-// ─── AUDIT LOGS ──────────────────────────────────────────────
+// ================= AUDIT LOGS =================
 
 export const auditLogsService = {
-  getRecent: (limit = 8) =>
+  getRecent: (limit = 10) =>
     run(
       supabase
         .from(SUPABASE_TABLES.AUDIT_LOGS)
-        .select('id, action_type, description, created_at, user_id, users(full_name, role)')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(limit)
     ),
 };
 
-// ─── FLASHCARDS ──────────────────────────────────────────────
+// ================= FLASHCARDS =================
 
 export const flashcardsService = {
-  getSets: (userId: string) =>
+  getSets: () =>
     run(
       supabase
         .from(SUPABASE_TABLES.FLASHCARD_SETS)
-        .select('id, title, description, created_at, flashcards(count)')
-        .eq('created_by', userId)
-        .order('created_at', { ascending: false })
+        .select('*')
     ),
 
   getCards: (setId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.FLASHCARDS)
-        .select('id, front, back, hint, difficulty')
+        .select('*')
         .eq('set_id', setId)
-        .order('created_at')
+        .order('order')
     ),
 };
+export const flashcardSetsService = {
+  create: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.FLASHCARD_SETS)
+        .insert(payload)
+        .select()
+        .single()
+    ),
 
-// ─── SYSTEM SETTINGS ─────────────────────────────────────────
+  update: (id: string, payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.FLASHCARD_SETS)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
+
+  delete: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.FLASHCARD_SETS)
+        .delete()
+        .eq('id', id)
+    ),
+};
+// ================= SETTINGS =================
 
 export const settingsService = {
   getAll: () =>
-    run(supabase.from(SUPABASE_TABLES.SYSTEM_SETTINGS).select('*')),
+    run(
+      supabase
+        .from(SUPABASE_TABLES.SYSTEM_SETTINGS)
+        .select('*')
+    ),
 
-  upsert: (settings: { key: string; value: string; description?: string }[]) =>
-    run(supabase.from(SUPABASE_TABLES.SYSTEM_SETTINGS).upsert(settings)),
+  upsert: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.SYSTEM_SETTINGS)
+        .upsert(payload)
+    ),
 };
 
-// ─── NOTIFICATIONS ───────────────────────────────────────────
+// ================= NOTIFICATIONS =================
 
 export const notificationsService = {
   getForUser: (userId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.NOTIFICATIONS)
-        .select('id, title, message, type, read_status, created_at')
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(20)
     ),
 
-  markRead: (notificationId: string) =>
-    run(supabase.from(SUPABASE_TABLES.NOTIFICATIONS).update({ read_status: true }).eq('id', notificationId)),
+  markRead: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.NOTIFICATIONS)
+        .update({ read_status: true })
+        .eq('id', id)
+    ),
 };
 
-// ─── MATERIALS ───────────────────────────────────────────────
+// ================= MATERIALS =================
 
 export const materialsService = {
   getByLesson: (lessonId: string) =>
-    run(supabase.from(SUPABASE_TABLES.MATERIALS).select('*').eq('lesson_id', lessonId).order('created_at')),
-
-  // Teacher: all materials across their courses
-  getByTeacher: (teacherId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.MATERIALS)
-        .select('id, title, file_url, material_type, size, created_at, lessons!inner(course_id, courses!inner(teacher_id))')
-        .eq('lessons.courses.teacher_id', teacherId)
-        .order('created_at', { ascending: false })
+        .select('*')
+        .eq('lesson_id', lessonId)
     ),
-};
 
-// ─── EXAM MATRICES ───────────────────────────────────────────
-
-export const examMatricesService = {
   getByTeacher: (teacherId: string) =>
     run(
       supabase
-        .from(SUPABASE_TABLES.EXAM_MATRICES)
-        .select('*')
-        .eq('teacher_id', teacherId)
+        .from('materials')
+        .select(`
+          id,
+          title,
+          file_url,
+          material_type,
+          size,
+          created_at,
+          lessons!inner(
+            id,
+            title,
+            course_id,
+            courses!inner(
+              id,
+              name,
+              teacher_id
+            )
+          )
+        `)
+        .eq('lessons.courses.teacher_id', teacherId)
         .order('created_at', { ascending: false })
+    ),
+
+  create: (payload: any) =>
+    run(
+      supabase
+        .from('materials')
+        .insert(payload)
+        .select()
+        .single()
+    ),
+
+  delete: (id: string) =>
+    run(
+      supabase
+        .from('materials')
+        .delete()
+        .eq('id', id)
     ),
 };
 
-// ─── EXAMS extended CRUD (for ExamBank page) ─────────────────
+// ================= EXAMS ADMIN =================
 
 export const examsAdminService = {
-  create: (exam: { title: string; duration: number; status: string; course_id: string }) =>
-    run(supabase.from(SUPABASE_TABLES.EXAMS).insert(exam).select().single()),
+  create: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.EXAMS)
+        .insert(payload)
+        .select(`
+          *,
+          courses(id,name)
+        `)
+        .single()
+    ),
 
-  updateStatus: (examId: string, status: string) =>
-    run(supabase.from(SUPABASE_TABLES.EXAMS).update({ status }).eq('id', examId).select().single()),
+  updateStatus: (id: string, status: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.EXAMS)
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single()
+    ),
 
-  delete: (examId: string) =>
-    run(supabase.from(SUPABASE_TABLES.EXAMS).delete().eq('id', examId)),
+  delete: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.EXAMS)
+        .delete()
+        .eq('id', id)
+    ),
 };
 
-// ─── FLASHCARD SET creation ───────────────────────────────────
+export const examMatricesService = {
+  getByTeacher: async (teacherId: string) =>
+    run(
+      supabase
+        .from('exam_matrices')
+        .select(`
+          id,
+          title,
+          config,
+          created_at,
+          exams!inner(
+            id,
+            title,
+            course_id,
+            courses!inner(
+              id,
+              name,
+              teacher_id
+            )
+          )
+        `)
+        .eq('exams.courses.teacher_id', teacherId)
+        .order('created_at', { ascending: false })
+    ),
 
-export const flashcardSetsService = {
-  create: (set: { title: string; description?: string | null; created_by: string }) =>
-    run(supabase.from(SUPABASE_TABLES.FLASHCARD_SETS).insert(set).select().single()),
+  create: async (payload: any) =>
+    run(
+      supabase
+        .from('exam_matrices')
+        .insert(payload)
+        .select()
+        .single()
+    ),
+
+  update: async (id: string, payload: any) =>
+    run(
+      supabase
+        .from('exam_matrices')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
+
+  delete: async (id: string) =>
+    run(
+      supabase
+        .from('exam_matrices')
+        .delete()
+        .eq('id', id)
+    ),
 };
