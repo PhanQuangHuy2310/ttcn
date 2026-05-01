@@ -580,6 +580,19 @@ CREATE POLICY "Own enrollments"
 ON public.student_classes
 FOR SELECT
 USING (student_id = auth.uid());
+CREATE POLICY "Teacher can view students in own classes"
+ON public.users
+FOR SELECT
+USING (
+ EXISTS (
+   SELECT 1
+   FROM public.student_classes sc
+   JOIN public.classes cl ON cl.id = sc.class_id
+   JOIN public.courses c ON c.id = cl.course_id
+   WHERE sc.student_id = users.id
+   AND c.teacher_id = auth.uid()
+ )
+);
 
 ALTER TABLE public.courses DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classes DISABLE ROW LEVEL SECURITY;
@@ -595,10 +608,10 @@ CREATE TYPE exam_status AS ENUM (
 ALTER TABLE public.exams
 ADD COLUMN status exam_status DEFAULT 'UPCOMING';
 
-ALTER TABLE student_classes
-DROP CONSTRAINT student_classes_student_id_fkey;
+ALTER TABLE public.student_classes
+DROP CONSTRAINT IF EXISTS student_classes_student_id_fkey;
 
-ALTER TABLE student_classes
+ALTER TABLE public.student_classes
 ADD CONSTRAINT student_classes_student_id_fkey
 FOREIGN KEY (student_id)
 REFERENCES public.users(id)
