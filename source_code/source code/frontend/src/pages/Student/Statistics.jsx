@@ -1,194 +1,264 @@
 // src/pages/Student/Statistics.jsx
-// Replaces ThongKeHocTapChiTietSinhVien (hardcoded). Connected to real submissions.
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { selectProfile } from '../../features/authentication/authenticationSlice';
 import AppLayout from '../../components/AppLayout';
-import { StatCard, Card, CardHeader, EmptyState, ErrorBanner, Sk, PageHeader, fmtDate } from '../../components/ui';
-import { submissionsService, classesService } from '../../services/supabaseService';
+import {
+  StatCard, Card, CardHeader, EmptyState, ErrorBanner,
+  Sk, PageHeader, ScoreBadge, fmtDate, ProgressBar,
+} from '../../components/ui';
+import { submissionsService } from '../../services/supabaseService';
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ReferenceLine, Cell, PieChart, Pie, Legend,
+} from 'recharts';
 
-const ScoreBar = ({ score, max = 10 }) => {
-  const pct = Math.min(100, ((parseFloat(score) || 0) / max) * 100);
-  const color = pct >= 80 ? 'bg-green-500' : pct >= 65 ? 'bg-blue-500' : pct >= 50 ? 'bg-orange-500' : 'bg-red-500';
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="flex items-center gap-3 w-full">
-      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-2 ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-sm font-bold text-slate-700 w-8 text-right">{score ?? '—'}</span>
+    <div className="bg-white border border-slate-100 rounded-xl shadow-lg px-4 py-3 text-xs">
+      <p className="font-bold text-slate-700 mb-1">{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color }} className="font-semibold">
+          {p.name}: {typeof p.value === 'number' ? p.value.toFixed(1) : p.value}
+        </p>
+      ))}
     </div>
   );
 };
 
+const ScoreTrendChart = ({ data }) => (
+  <ResponsiveContainer width="100%" height={220}>
+    <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+      <defs>
+        <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.18} />
+          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+      <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+      <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+      <Tooltip content={<ChartTooltip />} />
+      <ReferenceLine y={5} stroke="#f59e0b" strokeDasharray="4 4" strokeWidth={1.5} />
+      <Area
+        type="monotone"
+        dataKey="score"
+        name="Điểm số"
+        stroke="#3b82f6"
+        strokeWidth={2.5}
+        fill="url(#scoreGrad)"
+        dot={{ fill: '#3b82f6', r: 4, strokeWidth: 2, stroke: '#fff' }}
+        activeDot={{ r: 6 }}
+      />
+    </AreaChart>
+  </ResponsiveContainer>
+);
+
+const ScoreDistChart = ({ data }) => (
+  <ResponsiveContainer width="100%" height={180}>
+    <BarChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+      <XAxis dataKey="range" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+      <Tooltip content={<ChartTooltip />} />
+      <Bar dataKey="count" name="Số bài" radius={[6, 6, 0, 0]}>
+        {data.map((d, i) => (
+          <Cell key={i} fill={
+            d.range === '9-10' ? '#22c55e' :
+              d.range === '7-9' ? '#3b82f6' :
+                d.range === '5-7' ? '#f59e0b' : '#ef4444'
+          } />
+        ))}
+      </Bar>
+    </BarChart>
+  </ResponsiveContainer>
+);
+
 const Statistics = () => {
   const profile = useSelector(selectProfile);
-  const [submissions,  setSubmissions]  = useState([]);
-  const [enrollments,  setEnrollments]  = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!profile?.id) return;
-    const load = async () => {
-      setLoading(true);
-      const [subRes, enrRes] = await Promise.all([
-        submissionsService.getByStudent(profile.id),
-        classesService.getEnrolledByStudent(profile.id),
-      ]);
-      if (subRes.error) setError('Không thể tải dữ liệu thống kê.');
-      else {
-        setSubmissions(subRes.data ?? []);
-        setEnrollments(enrRes.data ?? []);
-      }
+    submissionsService.getByStudent(profile.id).then(({ data, error: err }) => {
+      if (err) setError('Không thể tải dữ liệu thống kê.');
+      else setSubmissions((data ?? []).filter(s => s.score !== null));
       setLoading(false);
-    };
-    load();
+    });
   }, [profile?.id]);
 
-  // ── Computed stats ──────────────────────────────────────────
-  const submitted = submissions.filter(s => s.status === 'SUBMITTED');
-  const scored    = submitted.filter(s => s.score !== null && s.score !== undefined);
+  const metrics = useMemo(() => {
+    if (!submissions.length) return null;
+    const scores = submissions.map(s => parseFloat(s.score));
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const best = Math.max(...scores);
+    const worst = Math.min(...scores);
+    const passed = scores.filter(s => s >= 5).length;
+    const passRate = Math.round((passed / scores.length) * 100);
+    return { avg: avg.toFixed(1), best: best.toFixed(1), worst: worst.toFixed(1), passRate, total: submissions.length, passed };
+  }, [submissions]);
 
-  const avgScore  = scored.length
-    ? (scored.reduce((a, s) => a + parseFloat(s.score), 0) / scored.length).toFixed(1)
-    : null;
+  const trendData = useMemo(() => {
+    return [...submissions]
+      .sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))
+      .slice(-10)
+      .map((s, i) => ({
+        label: fmtDate(s.submitted_at),
+        score: parseFloat(s.score),
+        exam: s.exams?.title ?? `Bài ${i + 1}`,
+      }));
+  }, [submissions]);
 
-  const topScore  = scored.length ? Math.max(...scored.map(s => parseFloat(s.score))).toFixed(1) : null;
-  const lowScore  = scored.length ? Math.min(...scored.map(s => parseFloat(s.score))).toFixed(1) : null;
+  const distData = useMemo(() => {
+    const buckets = [
+      { range: '0-5', min: 0, max: 5 },
+      { range: '5-7', min: 5, max: 7 },
+      { range: '7-9', min: 7, max: 9 },
+      { range: '9-10', min: 9, max: 10.01 },
+    ];
+    return buckets.map(b => ({
+      range: b.range,
+      count: submissions.filter(s => {
+        const v = parseFloat(s.score);
+        return v >= b.min && v < b.max;
+      }).length,
+    }));
+  }, [submissions]);
 
-  const scoreDistribution = [
-    { label: '9–10 (Xuất sắc)',    min: 9,   color: 'bg-green-500' },
-    { label: '7–8.9 (Tốt)',        min: 7,   color: 'bg-blue-500' },
-    { label: '5–6.9 (Trung bình)', min: 5,   color: 'bg-orange-500' },
-    { label: 'Dưới 5 (Yếu)',       min: -1,  color: 'bg-red-500' },
-  ].map(({ label, min, color }) => {
-    const count = scored.filter(s => {
-      const v = parseFloat(s.score);
-      return min === -1 ? v < 5 : min === 9 ? v >= 9 : v >= min && v < min + 2;
-    }).length;
-    const pct = scored.length ? Math.round((count / scored.length) * 100) : 0;
-    return { label, count, pct, color };
-  });
+  const pieData = metrics ? [
+    { name: 'Đạt (≥5)', value: metrics.passed, color: '#22c55e' },
+    { name: 'Không đạt', value: metrics.total - metrics.passed, color: '#ef4444' },
+  ].filter(d => d.value > 0) : [];
 
   return (
     <AppLayout role="STUDENT">
-      <PageHeader
-        title="Thống kê học tập"
-        subtitle="Phân tích chi tiết kết quả học tập của bạn"
-      />
+      <PageHeader title="Thống kê học tập" subtitle="Phân tích hiệu suất dựa trên kết quả thi" />
+
       {error && <ErrorBanner message={error} />}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon="school"   iconBg="bg-blue-50 text-blue-600"    label="Số lớp đang học"   value={enrollments.length}          loading={loading} />
-        <StatCard icon="quiz"     iconBg="bg-purple-50 text-purple-600" label="Bài thi đã nộp"  value={submitted.length}             loading={loading} />
-        <StatCard icon="grade"    iconBg="bg-green-50 text-green-600"  label="Điểm TB"           value={avgScore ?? '—'}              loading={loading} />
-        <StatCard icon="trending_up" iconBg="bg-orange-50 text-orange-600" label="Điểm cao nhất" value={topScore ?? '—'}             loading={loading} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Score history */}
-        <Card className="lg:col-span-3">
-          <CardHeader title="Lịch sử điểm số" />
-          {loading ? (
-            <div className="p-6 space-y-3">{[1,2,3,4].map(i => <Sk key={i} className="h-10 w-full" />)}</div>
-          ) : scored.length === 0 ? (
-            <EmptyState icon="grade" title="Chưa có điểm số nào" subtitle="Hoàn thành bài thi để xem thống kê." />
-          ) : (
-            <div className="divide-y divide-slate-50">
-              {scored.slice(0, 10).map(sub => (
-                <div key={sub.id} className="px-6 py-3.5 flex items-center gap-4">
-                  <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-purple-600 text-base">quiz</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{sub.exams?.title ?? '—'}</p>
-                    <p className="text-xs text-slate-400">{fmtDate(sub.submitted_at)}</p>
-                  </div>
-                  <div className="w-32 shrink-0">
-                    <ScoreBar score={parseFloat(sub.score).toFixed(1)} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {loading ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map(i => <Sk key={i} className="h-28 w-full rounded-2xl" />)}
+          </div>
+          <Sk className="h-64 w-full rounded-2xl" />
+        </div>
+      ) : !metrics ? (
+        <Card>
+          <EmptyState
+            icon="bar_chart"
+            title="Chưa có dữ liệu thống kê"
+            subtitle="Hoàn thành ít nhất một bài thi để xem thống kê học tập của bạn."
+          />
         </Card>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            <StatCard icon="quiz" iconBg="bg-blue-50 text-blue-600" label="Tổng bài đã thi" value={metrics.total} sub="bài thi có điểm" />
+            <StatCard icon="grade" iconBg="bg-primary/10 text-primary" label="Điểm trung bình" value={`${metrics.avg}/10`} />
+            <StatCard icon="trending_up" iconBg="bg-green-50 text-green-600" label="Điểm cao nhất" value={`${metrics.best}/10`} />
+            <StatCard icon="task_alt" iconBg="bg-orange-50 text-orange-600" label="Tỷ lệ đạt" value={`${metrics.passRate}%`} sub={`${metrics.passed}/${metrics.total} bài đạt`} />
+          </div>
 
-        {/* Distribution + overview */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Score distribution */}
-          <Card>
-            <CardHeader title="Phân bố điểm số" />
-            {loading ? (
-              <div className="p-6 space-y-3">{[1,2,3,4].map(i => <Sk key={i} className="h-8 w-full" />)}</div>
-            ) : scored.length === 0 ? (
-              <EmptyState icon="pie_chart" title="Chưa có dữ liệu" />
-            ) : (
-              <div className="px-6 py-4 space-y-3">
-                {scoreDistribution.map(({ label, count, pct, color }) => (
-                  <div key={label}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-600 font-medium">{label}</span>
-                      <span className="text-slate-500">{count} bài ({pct}%)</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-2 ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                ))}
+          {trendData.length > 1 && (
+            <Card>
+              <CardHeader title="Xu hướng điểm số" subtitle="Điểm 10 bài thi gần nhất theo thời gian" />
+              <div className="px-6 pb-6">
+                <ScoreTrendChart data={trendData} />
+                <p className="text-xs text-slate-400 text-center mt-2">Đường nét đứt màu vàng = ngưỡng điểm đạt (5.0)</p>
               </div>
-            )}
-          </Card>
+            </Card>
+          )}
 
-          {/* Min/Max/Avg */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader title="Phân bố điểm số" subtitle="Số bài theo từng khung điểm" />
+              <div className="px-6 pb-6"><ScoreDistChart data={distData} /></div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Tỷ lệ đạt / Không đạt" />
+              <div className="px-6 pb-6">
+                {pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={4} dataKey="value">
+                        {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip formatter={(v, n) => [`${v} bài`, n]} contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid #e2e8f0' }} />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Không đủ dữ liệu</div>
+                )}
+              </div>
+            </Card>
+          </div>
+
           <Card>
-            <CardHeader title="Tổng kết" />
-            <div className="px-6 py-4 space-y-3">
+            <CardHeader title="Mục tiêu học tập" />
+            <div className="p-6 space-y-5">
               {[
-                { label: 'Điểm trung bình', value: avgScore, icon: 'avg_pace',      color: 'text-blue-600' },
-                { label: 'Điểm cao nhất',   value: topScore, icon: 'trending_up',   color: 'text-green-600' },
-                { label: 'Điểm thấp nhất',  value: lowScore, icon: 'trending_down', color: 'text-red-500' },
-              ].map(({ label, value, icon, color }) => (
-                <div key={label} className="flex items-center justify-between py-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`material-symbols-outlined text-lg ${color}`}>{icon}</span>
-                    <span className="text-sm text-slate-600">{label}</span>
+                { label: 'Điểm TB hiện tại', value: parseFloat(metrics.avg), target: 8, color: 'bg-primary' },
+                { label: 'Tỷ lệ đạt', value: metrics.passRate, target: 100, color: 'bg-green-500', isPercent: true },
+                { label: 'Điểm cao nhất', value: parseFloat(metrics.best), target: 10, color: 'bg-orange-500' },
+              ].map(item => (
+                <div key={item.label}>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-semibold text-slate-700">{item.label}</span>
+                    <span className="font-black text-slate-800">{item.isPercent ? `${item.value}%` : `${item.value}/10`}</span>
                   </div>
-                  {loading
-                    ? <Sk className="h-5 w-12" />
-                    : <span className={`text-xl font-black ${color}`}>{value ?? '—'}</span>
-                  }
+                  <ProgressBar value={item.value} max={item.target} colorClass={item.color} />
                 </div>
               ))}
             </div>
           </Card>
 
-          {/* Enrolled classes summary */}
+          {/* ĐÃ CẬP NHẬT: Thêm cột Trạng thái và Nhận xét vào bảng */}
           <Card>
-            <CardHeader title="Các lớp đang học" />
-            {loading ? (
-              <div className="p-4 space-y-2">{[1,2].map(i => <Sk key={i} className="h-10 w-full" />)}</div>
-            ) : enrollments.length === 0 ? (
-              <EmptyState icon="school" title="Chưa đăng ký lớp nào" />
-            ) : (
-              <div className="divide-y divide-slate-50">
-                {enrollments.slice(0, 5).map(en => (
-                  <div key={en.id} className="px-6 py-3 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-blue-600 text-base">school</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{en.classes?.name ?? '—'}</p>
-                      <p className="text-xs text-slate-400 truncate">{en.classes?.courses?.subject ?? '—'}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <CardHeader title="Lịch sử điểm số & Nhận xét" subtitle="Bảng theo dõi các bài đã chấm điểm" />
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    {['Đề thi', 'Điểm số', 'Trạng thái', 'Nhận xét', 'Ngày thi'].map(h => (
+                      <th key={h} className="px-6 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...submissions]
+                    .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
+                    .slice(0, 10)
+                    .map(s => (
+                      <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
+                        <td className="px-6 py-3.5 font-medium text-slate-800">{s.exams?.title ?? 'Bài thi'}</td>
+                        <td className="px-6 py-3.5"><ScoreBadge score={s.score} /></td>
+                        <td className="px-6 py-3.5">
+                          {s.status === 'GRADED' ? (
+                            <span className="text-[10px] font-bold px-2 py-1 bg-green-100 text-green-700 rounded-md">Đã chấm tự luận</span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-md">Chấm tự động</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3.5 text-slate-600 text-xs max-w-[250px] truncate" title={s.teacher_comment}>
+                          {s.teacher_comment ? `💬 ${s.teacher_comment}` : '—'}
+                        </td>
+                        <td className="px-6 py-3.5 text-slate-400 text-xs">{fmtDate(s.submitted_at)}</td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
-      </div>
+      )}
     </AppLayout>
   );
 };

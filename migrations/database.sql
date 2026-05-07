@@ -1,4 +1,4 @@
--- 01_initial_schema.sql (Bản cập nhật DHDedu - Thống nhất Role TEACHER)
+\-- 01_initial_schema.sql (Bản cập nhật DHDedu - Thống nhất Role TEACHER)
 
 -- Enable Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -580,19 +580,6 @@ CREATE POLICY "Own enrollments"
 ON public.student_classes
 FOR SELECT
 USING (student_id = auth.uid());
-CREATE POLICY "Teacher can view students in own classes"
-ON public.users
-FOR SELECT
-USING (
- EXISTS (
-   SELECT 1
-   FROM public.student_classes sc
-   JOIN public.classes cl ON cl.id = sc.class_id
-   JOIN public.courses c ON c.id = cl.course_id
-   WHERE sc.student_id = users.id
-   AND c.teacher_id = auth.uid()
- )
-);
 
 ALTER TABLE public.courses DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classes DISABLE ROW LEVEL SECURITY;
@@ -608,13 +595,220 @@ CREATE TYPE exam_status AS ENUM (
 ALTER TABLE public.exams
 ADD COLUMN status exam_status DEFAULT 'UPCOMING';
 
-ALTER TABLE public.student_classes
-DROP CONSTRAINT IF EXISTS student_classes_student_id_fkey;
+ALTER TABLE student_classes
+DROP CONSTRAINT student_classes_student_id_fkey;
 
-ALTER TABLE public.student_classes
+ALTER TABLE student_classes
 ADD CONSTRAINT student_classes_student_id_fkey
 FOREIGN KEY (student_id)
 REFERENCES public.users(id)
 ON DELETE CASCADE;
 
+-- =========================================================================================
+-- BẢN CẬP NHẬT DATABASE HOÀN CHỈNH - DHDEDU (CHUẨN HÓA THEO PHÂN TÍCH HỆ THỐNG)
+-- Chạy script này SAU KHI đã chạy bản 01_initial_schema.sql và 02_extended_schema.sql
+-- =========================================================================================
+
+-- -----------------------------------------------------------------------------------------
+-- 1. TẠO CÁC ENUMS MỚI (CHẠY ĐỘC LẬP)
+-- -----------------------------------------------------------------------------------------
+DO $$ BEGIN
+    CREATE TYPE user_status AS ENUM ('ACTIVE', 'INACTIVE');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE material_purpose AS ENUM ('THEORY', 'EXAM_SOURCE');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE educational_level AS ENUM ('PRIMARY', 'SECONDARY', 'HIGH_SCHOOL');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE enrollment_status AS ENUM ('ACTIVE', 'INACTIVE', 'PENDING');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+-- Thêm trạng thái GRADED (Đã chấm xong) vào enum submission_status hiện tại
+ALTER TYPE submission_status ADD VALUE IF NOT EXISTS 'GRADED';
+
+
+-- -----------------------------------------------------------------------------------------
+-- 2. CẬP NHẬT CÁC BẢNG DỮ LIỆU (ALTER TABLES)
+-- -----------------------------------------------------------------------------------------
+
+-- 2.1. Bảng users: Thêm trạng thái tài khoản (Phục vụ chức năng Khóa tài khoản của Admin)
+ALTER TABLE public.users 
+    ADD COLUMN IF NOT EXISTS status user_status DEFAULT 'ACTIVE';
+
+-- 2.2. Bảng materials: Phục vụ tính năng kho học liệu và quét OCR
+ALTER TABLE public.materials
+    ADD COLUMN IF NOT EXISTS purpose material_purpose DEFAULT 'THEORY',
+    ADD COLUMN IF NOT EXISTS educational_level educational_level,
+    ADD COLUMN IF NOT EXISTS grade_level INTEGER CHECK (grade_level BETWEEN 1 AND 12);
+
+-- 2.3. Bảng classes: Phục vụ quản lý sĩ số tự động
+ALTER TABLE public.classes
+    ADD COLUMN IF NOT EXISTS current_student INTEGER DEFAULT 0;
+
+DO $$ BEGIN
+    ALTER TABLE public.classes ADD CONSTRAINT check_max_student_positive CHECK (max_student > 0);
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+-- 2.4. Bảng student_classes: Thêm trạng thái thành viên
+ALTER TABLE public.student_classes
+    ADD COLUMN IF NOT EXISTS status enrollment_status DEFAULT 'ACTIVE';
+
+-- 2.5. Bảng questions: Chuẩn hóa kiến trúc Ngân hàng câu hỏi
+ALTER TABLE public.questions
+    ADD COLUMN IF NOT EXISTS source_material_id UUID REFERENCES public.materials(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE;
+
+-- Gỡ bỏ ràng buộc NOT NULL của exam_id vì câu hỏi trong Ngân hàng chưa chắc đã thuộc kỳ thi nào
+ALTER TABLE public.questions ALTER COLUMN exam_id DROP NOT NULL;
+
+
+-- -----------------------------------------------------------------------------------------
+-- 3. TẠO BẢNG TRUNG GIAN MỚI (DÀNH CHO NGÂN HÀNG CÂU HỎI VÀ KỲ THI)
+-- -----------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.exam_questions (
+    exam_id UUID REFERENCES public.exams(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES public.questions(id) ON DELETE CASCADE,
+    question_order INTEGER,  -- Thứ tự câu hỏi trong đề thi
+    points DECIMAL(5,2),     -- Điểm ghi đè riêng cho câu hỏi trong đề thi này
+    PRIMARY KEY (exam_id, question_id)
+);
+
+
+-- -----------------------------------------------------------------------------------------
+-- 4. CẬP NHẬT LOGIC TRIGGER & FUNCTIONS (QUẢN LÝ SĨ SỐ LỚP)
+-- -----------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.check_and_update_class_capacity()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_max_student INTEGER;
+    v_current_student INTEGER;
+BEGIN
+    -- Khi Học sinh ghi danh (INSERT)
+    IF TG_OP = 'INSERT' THEN
+        SELECT max_student, current_student INTO v_max_student, v_current_student
+        FROM public.classes
+        WHERE id = NEW.class_id
+        FOR UPDATE; -- Khóa dòng để tránh lỗi Race Condition khi nhiều người cùng đăng ký
+
+        IF v_current_student >= v_max_student THEN
+            RAISE EXCEPTION 'Từ chối ghi danh: Lớp học đã đạt sĩ số tối đa (%).', v_max_student;
+        END IF;
+
+        UPDATE public.classes SET current_student = current_student + 1 WHERE id = NEW.class_id;
+        RETURN NEW;
+    END IF;
+
+    -- Khi Học sinh rời lớp hoặc bị xóa (DELETE)
+    IF TG_OP = 'DELETE' THEN
+        UPDATE public.classes SET current_student = current_student - 1 WHERE id = OLD.class_id;
+        RETURN OLD;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_class_capacity ON public.student_classes;
+CREATE TRIGGER trg_class_capacity
+    BEFORE INSERT OR DELETE ON public.student_classes
+    FOR EACH ROW EXECUTE PROCEDURE public.check_and_update_class_capacity();
+
+
+-- -----------------------------------------------------------------------------------------
+-- 5. CẬP NHẬT BẢO MẬT RLS (ROW LEVEL SECURITY)
+-- -----------------------------------------------------------------------------------------
+-- Bảo mật kho tài liệu: Học sinh chỉ thấy tài liệu LÝ THUYẾT của lớp đang theo học, 
+-- KHÔNG được thấy tài liệu NGUỒN ĐỀ THI (OCR) của giáo viên.
+DROP POLICY IF EXISTS "Students see materials of their classes" ON public.materials;
+
+CREATE POLICY "Students see materials of their classes"
+ON public.materials FOR SELECT
+USING (
+    purpose = 'THEORY' AND
+    EXISTS (
+        SELECT 1 FROM public.lessons l
+        JOIN public.courses c ON c.id = l.course_id
+        JOIN public.classes cl ON cl.course_id = c.id
+        JOIN public.student_classes sc ON sc.class_id = cl.id
+        WHERE l.id = public.materials.lesson_id 
+        AND sc.student_id = auth.uid()
+        AND sc.status = 'ACTIVE'
+    )
+);
+
+-- Bật RLS cho bảng mới
+ALTER TABLE public.exam_questions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Students see exam questions of active exams"
+ON public.exam_questions FOR SELECT
+USING (
+    EXISTS (
+        SELECT 1 FROM public.exams e
+        JOIN public.student_classes sc ON sc.class_id = e.class_id
+        WHERE e.id = public.exam_questions.exam_id 
+        AND sc.student_id = auth.uid()
+        AND sc.status = 'ACTIVE'
+    )
+);
+
+CREATE POLICY "Teachers manage exam questions"
+ON public.exam_questions FOR ALL
+USING (
+    EXISTS (
+        SELECT 1 FROM public.exams e
+        JOIN public.courses c ON c.id = e.course_id
+        WHERE e.id = public.exam_questions.exam_id 
+        AND c.teacher_id = auth.uid()
+    )
+);
+
+
+-- =========================================================================================
+-- END OF SCRIPT
+-- =========================================================================================
 NOTIFY pgrst, 'reload schema';
+
+-- submissions
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS tab_switches INT DEFAULT 0;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS teacher_comment TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS graded_at TIMESTAMPTZ;
+
+-- exams
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS has_password BOOLEAN DEFAULT false;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS shuffle_questions BOOLEAN DEFAULT false;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS allow_review BOOLEAN DEFAULT true;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS pass_score NUMERIC DEFAULT 5;
+
+-- users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+-- lessons
+CREATE TABLE IF NOT EXISTS lessons (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  video_url TEXT,
+  order_index INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT,
+  type TEXT DEFAULT 'SYSTEM',
+  read_status BOOLEAN DEFAULT false,
+  link TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE notifications REPLICA IDENTITY FULL;
+

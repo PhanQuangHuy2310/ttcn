@@ -12,34 +12,34 @@ import LoginPage from './pages/Auth/LoginPage';
 
 // ── Lazy load all feature pages ──────────────────────────────
 // Admin
-const AdminDashboard    = lazy(() => import('./pages/Admin/Dashboard'));
-const UserManagement    = lazy(() => import('./pages/Admin/UserManagement'));
-const AdminSecurity     = lazy(() => import('./pages/Admin/Security'));
-const SystemSettings    = lazy(() => import('./pages/Admin/SystemSettings'));
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const UserManagement = lazy(() => import('./pages/Admin/UserManagement'));
+const AdminSecurity = lazy(() => import('./pages/Admin/Security'));
+const SystemSettings = lazy(() => import('./pages/Admin/SystemSettings'));
 
 // Teacher
-const TeacherDashboard  = lazy(() => import('./pages/Teacher/Dashboard'));
-const ClassManagement   = lazy(() => import('./pages/Teacher/ClassManagement'));
-const ExamBank          = lazy(() => import('./pages/Teacher/ExamBank'));
-const QuestionBank      = lazy(() => import('./pages/Teacher/QuestionBank'));
-const MaterialLibrary   = lazy(() => import('./pages/Teacher/MaterialLibrary'));
-const TeacherReports    = lazy(() => import('./pages/Teacher/Reports'));
-const ExamMatrices      = lazy(() => import('./pages/Teacher/ExamMatrices'));
-
+const TeacherDashboard = lazy(() => import('./pages/Teacher/Dashboard'));
+const ClassManagement = lazy(() => import('./pages/Teacher/ClassManagement'));
+const ExamBank = lazy(() => import('./pages/Teacher/ExamBank'));
+const QuestionBank = lazy(() => import('./pages/Teacher/QuestionBank'));
+const MaterialLibrary = lazy(() => import('./pages/Teacher/MaterialLibrary'));
+const TeacherReports = lazy(() => import('./pages/Teacher/Reports'));
+const ExamMatrices = lazy(() => import('./pages/Teacher/ExamMatrices'));
+const EssayGrading = lazy(() => import('./pages/Teacher/EssayGrading'));
 // Student
-const StudentDashboard  = lazy(() => import('./pages/Student/Dashboard'));
-const StudentClasses    = lazy(() => import('./pages/Student/Classes'));
-const ExamList          = lazy(() => import('./pages/Student/ExamList'));
-const ExamTaking        = lazy(() => import('./pages/Student/ExamTaking'));
-const ExamReview        = lazy(() => import('./pages/Student/ExamReview'));
-const ExamHistory       = lazy(() => import('./pages/Student/ExamHistory'));
-const Practice          = lazy(() => import('./pages/Student/Practice'));
-const Flashcards        = lazy(() => import('./pages/Student/Flashcards'));
-const MockExams         = lazy(() => import('./pages/Student/MockExams'));
-const Statistics        = lazy(() => import('./pages/Student/Statistics'));
+const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
+const StudentClasses = lazy(() => import('./pages/Student/Classes'));
+const ExamList = lazy(() => import('./pages/Student/ExamList'));
+const ExamTaking = lazy(() => import('./pages/Student/ExamTaking'));
+const ExamReview = lazy(() => import('./pages/Student/ExamReview'));
+const ExamHistory = lazy(() => import('./pages/Student/ExamHistory'));
+const Practice = lazy(() => import('./pages/Student/Practice'));
+const Flashcards = lazy(() => import('./pages/Student/Flashcards'));
+const MockExams = lazy(() => import('./pages/Student/MockExams'));
+const Statistics = lazy(() => import('./pages/Student/Statistics'));
 
 // Common
-const Profile           = lazy(() => import('./pages/Common/Profile'));
+const Profile = lazy(() => import('./pages/Common/Profile'));
 
 // ── Loading fallback ─────────────────────────────────────────
 const PageLoader = () => (
@@ -54,7 +54,7 @@ const PageLoader = () => (
 // ── Route guards ─────────────────────────────────────────────
 const RequireAuth = ({ children, allowedRoles }) => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const profile         = useSelector(selectProfile);
+  const profile = useSelector(selectProfile);
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (allowedRoles && profile?.role && !allowedRoles.includes(profile.role)) {
@@ -67,7 +67,7 @@ const RequireAuth = ({ children, allowedRoles }) => {
 
 const RequireGuest = ({ children }) => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const profile         = useSelector(selectProfile);
+  const profile = useSelector(selectProfile);
 
   if (!isAuthenticated) return children;
   const roleHome = { ADMIN: '/admin/dashboard', TEACHER: '/teacher/dashboard', STUDENT: '/student/dashboard' };
@@ -88,32 +88,37 @@ const App = () => (
         {/* ─── Admin ───────────────────────────────────────── */}
         <Route path="/admin" element={<RequireAuth allowedRoles={['ADMIN']}><Navigate to="/admin/dashboard" replace /></RequireAuth>} />
         <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['ADMIN']}><AdminDashboard /></RequireAuth>} />
-        <Route path="/admin/users"     element={<RequireAuth allowedRoles={['ADMIN']}><UserManagement /></RequireAuth>} />
-        <Route path="/admin/security"  element={<RequireAuth allowedRoles={['ADMIN']}><AdminSecurity /></RequireAuth>} />
-        <Route path="/admin/settings"  element={<RequireAuth allowedRoles={['ADMIN']}><SystemSettings /></RequireAuth>} />
+        <Route path="/admin/users" element={<RequireAuth allowedRoles={['ADMIN']}><UserManagement /></RequireAuth>} />
+        <Route path="/admin/security" element={<RequireAuth allowedRoles={['ADMIN']}><AdminSecurity /></RequireAuth>} />
+        <Route path="/admin/settings" element={<RequireAuth allowedRoles={['ADMIN']}><SystemSettings /></RequireAuth>} />
 
         {/* ─── Teacher ─────────────────────────────────────── */}
         <Route path="/teacher" element={<RequireAuth allowedRoles={['TEACHER']}><Navigate to="/teacher/dashboard" replace /></RequireAuth>} />
-        <Route path="/teacher/dashboard"     element={<RequireAuth allowedRoles={['TEACHER']}><TeacherDashboard /></RequireAuth>} />
-        <Route path="/teacher/classes"       element={<RequireAuth allowedRoles={['TEACHER']}><ClassManagement /></RequireAuth>} />
-        <Route path="/teacher/exams"         element={<RequireAuth allowedRoles={['TEACHER']}><ExamBank /></RequireAuth>} />
-        <Route path="/teacher/questions"     element={<RequireAuth allowedRoles={['TEACHER']}><QuestionBank /></RequireAuth>} />
-        <Route path="/teacher/materials"     element={<RequireAuth allowedRoles={['TEACHER']}><MaterialLibrary /></RequireAuth>} />
-        <Route path="/teacher/reports"       element={<RequireAuth allowedRoles={['TEACHER']}><TeacherReports /></RequireAuth>} />
+        <Route path="/teacher/dashboard" element={<RequireAuth allowedRoles={['TEACHER']}><TeacherDashboard /></RequireAuth>} />
+        <Route path="/teacher/classes" element={<RequireAuth allowedRoles={['TEACHER']}><ClassManagement /></RequireAuth>} />
+        <Route path="/teacher/exams" element={<RequireAuth allowedRoles={['TEACHER']}><ExamBank /></RequireAuth>} />
+        <Route path="/teacher/questions" element={<RequireAuth allowedRoles={['TEACHER']}><QuestionBank /></RequireAuth>} />
+        <Route path="/teacher/materials" element={<RequireAuth allowedRoles={['TEACHER']}><MaterialLibrary /></RequireAuth>} />
+        <Route path="/teacher/reports" element={<RequireAuth allowedRoles={['TEACHER']}><TeacherReports /></RequireAuth>} />
         <Route path="/teacher/exam-matrices" element={<RequireAuth allowedRoles={['TEACHER']}><ExamMatrices /></RequireAuth>} />
+        {/* Sửa lại props allowedRoles cho chuẩn */}
+        <Route path="/teacher/essay-grading" element={<RequireAuth allowedRoles={['TEACHER']}><EssayGrading /></RequireAuth>} />
 
         {/* ─── Student ─────────────────────────────────────── */}
         <Route path="/student" element={<RequireAuth allowedRoles={['STUDENT']}><Navigate to="/student/dashboard" replace /></RequireAuth>} />
-        <Route path="/student/dashboard"   element={<RequireAuth allowedRoles={['STUDENT']}><StudentDashboard /></RequireAuth>} />
-        <Route path="/student/classes"     element={<RequireAuth allowedRoles={['STUDENT']}><StudentClasses /></RequireAuth>} />
-        <Route path="/student/exams"       element={<RequireAuth allowedRoles={['STUDENT']}><ExamList /></RequireAuth>} />
-        <Route path="/student/exams/take"  element={<RequireAuth allowedRoles={['STUDENT']}><ExamTaking /></RequireAuth>} />
-        <Route path="/student/exams/review" element={<RequireAuth allowedRoles={['STUDENT']}><ExamReview /></RequireAuth>} />
-        <Route path="/student/history"     element={<RequireAuth allowedRoles={['STUDENT']}><ExamHistory /></RequireAuth>} />
-        <Route path="/student/practice"    element={<RequireAuth allowedRoles={['STUDENT']}><Practice /></RequireAuth>} />
-        <Route path="/student/flashcards"  element={<RequireAuth allowedRoles={['STUDENT']}><Flashcards /></RequireAuth>} />
-        <Route path="/student/mock-exams"  element={<RequireAuth allowedRoles={['STUDENT']}><MockExams /></RequireAuth>} />
-        <Route path="/student/statistics"  element={<RequireAuth allowedRoles={['STUDENT']}><Statistics /></RequireAuth>} />
+        <Route path="/student/dashboard" element={<RequireAuth allowedRoles={['STUDENT']}><StudentDashboard /></RequireAuth>} />
+        <Route path="/student/classes" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClasses /></RequireAuth>} />
+        <Route path="/student/exams" element={<RequireAuth allowedRoles={['STUDENT']}><ExamList /></RequireAuth>} />
+
+        {/* SỬA LỖI 404 Ở ĐÂY: Đổi đường dẫn cho khớp với component gọi đến */}
+        <Route path="/student/exam" element={<RequireAuth allowedRoles={['STUDENT']}><ExamTaking /></RequireAuth>} />
+        <Route path="/student/review" element={<RequireAuth allowedRoles={['STUDENT']}><ExamReview /></RequireAuth>} />
+
+        <Route path="/student/history" element={<RequireAuth allowedRoles={['STUDENT']}><ExamHistory /></RequireAuth>} />
+        <Route path="/student/practice" element={<RequireAuth allowedRoles={['STUDENT']}><Practice /></RequireAuth>} />
+        <Route path="/student/flashcards" element={<RequireAuth allowedRoles={['STUDENT']}><Flashcards /></RequireAuth>} />
+        <Route path="/student/mock-exams" element={<RequireAuth allowedRoles={['STUDENT']}><MockExams /></RequireAuth>} />
+        <Route path="/student/statistics" element={<RequireAuth allowedRoles={['STUDENT']}><Statistics /></RequireAuth>} />
 
         {/* ─── Common (any authenticated user) ─────────────── */}
         <Route path="/common/profile" element={<RequireAuth><Profile /></RequireAuth>} />
@@ -128,7 +133,7 @@ const App = () => (
 // ── Helpers ──────────────────────────────────────────────────
 const RootRedirect = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const profile         = useSelector(selectProfile);
+  const profile = useSelector(selectProfile);
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   const roleHome = { ADMIN: '/admin/dashboard', TEACHER: '/teacher/dashboard', STUDENT: '/student/dashboard' };
   return <Navigate to={roleHome[profile?.role] ?? '/login'} replace />;

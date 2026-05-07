@@ -84,3 +84,6 @@ aws:
     secret-key: ${AWS_SECRET_KEY:dummy}
     bucket-name: ${AWS_S3_BUCKET:dummy}
     region: ${AWS_REGION:ap-southeast-1}
+gemini:
+  api:
+    key: ${API_KEY}

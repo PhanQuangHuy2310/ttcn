@@ -1,12 +1,10 @@
 // src/pages/Student/ExamHistory.jsx
-// Replaces LichSuLamBaiChiTietSinhVien (hardcoded). Connected to submissions + exams.
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectProfile } from '../../features/authentication/authenticationSlice';
 import AppLayout from '../../components/AppLayout';
-import { Card, CardHeader, EmptyState, ErrorBanner, StatusBadge, Sk, PageHeader, fmtDateTime } from '../../components/ui';
+import { Card, EmptyState, ErrorBanner, StatusBadge, Sk, PageHeader, fmtDateTime } from '../../components/ui';
 import { submissionsService } from '../../services/supabaseService';
 
 const ScoreBadge = ({ score }) => {
@@ -19,10 +17,10 @@ const ScoreBadge = ({ score }) => {
 const ExamHistory = () => {
   const profile = useSelector(selectProfile);
   const [submissions, setSubmissions] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState(null);
-  const [filter,      setFilter]      = useState('ALL');
-  const [search,      setSearch]      = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -56,14 +54,13 @@ const ExamHistory = () => {
       />
       {error && <ErrorBanner message={error} />}
 
-      {/* Summary row */}
       {!loading && submissions.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Tổng bài thi',    value: submissions.length,                                              icon: 'assignment', bg: 'bg-blue-50 text-blue-600' },
-            { label: 'Đã nộp',          value: submissions.filter(s => s.status === 'SUBMITTED').length,       icon: 'task_alt',   bg: 'bg-green-50 text-green-600' },
-            { label: 'Đang làm',        value: submissions.filter(s => s.status === 'IN_PROGRESS').length,     icon: 'edit_note',  bg: 'bg-orange-50 text-orange-600' },
-            { label: 'Điểm trung bình', value: avgScore ?? '—',                                                icon: 'grade',      bg: 'bg-purple-50 text-purple-600' },
+            { label: 'Tổng bài thi', value: submissions.length, icon: 'assignment', bg: 'bg-blue-50 text-blue-600' },
+            { label: 'Đã nộp/Chấm xong', value: submissions.filter(s => s.status === 'SUBMITTED' || s.status === 'GRADED').length, icon: 'task_alt', bg: 'bg-green-50 text-green-600' },
+            { label: 'Đang làm', value: submissions.filter(s => s.status === 'IN_PROGRESS').length, icon: 'edit_note', bg: 'bg-orange-50 text-orange-600' },
+            { label: 'Điểm trung bình', value: avgScore ?? '—', icon: 'grade', bg: 'bg-purple-50 text-purple-600' },
           ].map((c, i) => (
             <div key={i} className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.bg} shrink-0`}>
@@ -78,7 +75,6 @@ const ExamHistory = () => {
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
@@ -88,21 +84,19 @@ const ExamHistory = () => {
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
-        {['ALL', 'NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED'].map(s => (
+        {['ALL', 'NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED', 'GRADED'].map(s => (
           <button key={s} onClick={() => setFilter(s)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filter === s ? 'bg-primary text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filter === s ? 'bg-primary text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
           >
-            {s === 'ALL' ? 'Tất cả' : s === 'NOT_STARTED' ? 'Chưa làm' : s === 'IN_PROGRESS' ? 'Đang làm' : 'Đã nộp'}
+            {s === 'ALL' ? 'Tất cả' : s === 'NOT_STARTED' ? 'Chưa làm' : s === 'IN_PROGRESS' ? 'Đang làm' : s === 'GRADED' ? 'Đã chấm' : 'Đã nộp'}
           </button>
         ))}
       </div>
 
-      {/* List */}
       <Card>
         {loading ? (
-          <div className="p-6 space-y-3">{[1,2,3,4].map(i => <Sk key={i} className="h-16 w-full" />)}</div>
+          <div className="p-6 space-y-3">{[1, 2, 3, 4].map(i => <Sk key={i} className="h-16 w-full" />)}</div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon="assignment"
@@ -137,20 +131,23 @@ const ExamHistory = () => {
                   <div className="col-span-1"><ScoreBadge score={sub.score} /></div>
                   <div className="col-span-1"><StatusBadge status={sub.status} /></div>
                   <div className="col-span-1 flex justify-end">
-                    {sub.status === 'SUBMITTED' ? (
-                      <Link to={`/student/exams/review?id=${sub.exam_id}`}
+
+                    {/* Đã sửa URL và cho phép cả bài GRADED được xem lại */}
+                    {sub.status === 'SUBMITTED' || sub.status === 'GRADED' ? (
+                      <Link to={`/student/review?id=${sub.exam_id}`}
                         className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                         title="Xem lại bài làm"
                       >
                         <span className="material-symbols-outlined text-lg">visibility</span>
                       </Link>
                     ) : sub.status === 'IN_PROGRESS' ? (
-                      <Link to={`/student/exams?id=${sub.exam_id}`}
+                      <Link to={`/student/exam?id=${sub.exam_id}`}
                         className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition"
                       >
                         Tiếp tục
                       </Link>
                     ) : null}
+
                   </div>
                 </div>
               ))}

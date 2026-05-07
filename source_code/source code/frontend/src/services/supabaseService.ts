@@ -1,5 +1,4 @@
 // src/services/supabaseService.ts
-// DHDedu - Clean version matched with your Supabase schema
 
 import { supabase } from '../lib/supabase';
 import { SUPABASE_TABLES } from '../constant/apiEndpoints';
@@ -235,24 +234,31 @@ export const classesService = {
     };
   },
   countAll: () => countRows(SUPABASE_TABLES.CLASSES),
-};
-
-// ================= STUDENT_CLASSES =================
-
-export const studentClassesService = {
-  getByStudent: (studentId: string) =>
+  create: (payload: any) =>
     run(
       supabase
-        .from(SUPABASE_TABLES.STUDENT_CLASSES)
-        .select('*')
-        .eq('student_id', studentId)
+        .from(SUPABASE_TABLES.CLASSES)
+        .insert(payload)
+        .select()
+        .single()
     ),
 
-  enroll: (payload: any) =>
+  update: (id: string, payload: any) =>
     run(
       supabase
-        .from(SUPABASE_TABLES.STUDENT_CLASSES)
-        .insert(payload)
+        .from(SUPABASE_TABLES.CLASSES)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
+
+  delete: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.CLASSES)
+        .delete()
+        .eq('id', id)
     ),
 };
 
@@ -340,7 +346,7 @@ export const examsService = {
 };
 
 // ================= QUESTIONS =================
-
+// ĐÃ FIX: Bao gồm đầy đủ các hàm lấy (GET), thêm (CREATE), sửa (UPDATE), xóa (DELETE)
 export const questionsService = {
   getByExam: (examId: string) =>
     run(
@@ -349,6 +355,7 @@ export const questionsService = {
         .select('*')
         .eq('exam_id', examId)
     ),
+
   getByTeacher: (teacherId: string) =>
     run(
       supabase
@@ -372,6 +379,7 @@ export const questionsService = {
         .eq('exams.courses.teacher_id', teacherId)
         .order('created_at', { ascending: false })
     ),
+
   countByTeacher: async (teacherId: string) => {
     const { data, error } = await supabase
       .from(SUPABASE_TABLES.QUESTIONS)
@@ -390,6 +398,33 @@ export const questionsService = {
       error: error?.message ?? null
     };
   },
+
+  create: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.QUESTIONS)
+        .insert(payload)
+        .select()
+        .single()
+    ),
+
+  update: (id: string, payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.QUESTIONS)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
+
+  delete: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.QUESTIONS)
+        .delete()
+        .eq('id', id)
+    ),
 };
 
 // ================= SUBMISSIONS =================
@@ -399,7 +434,7 @@ export const submissionsService = {
     run(
       supabase
         .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('*')
+        .select('*, exams(id, title)')
         .eq('student_id', studentId)
     ),
   getPendingByTeacher: (teacherId: string) =>
@@ -475,6 +510,110 @@ export const submissionsService = {
         .select()
         .single()
     ),
+
+  startExam: async (examId: string, studentId: string) => {
+    try {
+      const { data: existing, error: fetchErr } = await supabase
+        .from('submissions')
+        .select('*')
+        .eq('exam_id', examId)
+        .eq('student_id', studentId)
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.status === 'NOT_STARTED') {
+          const { data, error } = await supabase
+            .from('submissions')
+            .update({ status: 'IN_PROGRESS', started_at: new Date().toISOString() })
+            .eq('id', existing.id)
+            .select()
+            .single();
+          return { data, error };
+        }
+        return { data: existing, error: null };
+      }
+
+      const { data, error } = await supabase
+        .from('submissions')
+        .insert({
+          exam_id: examId,
+          student_id: studentId,
+          status: 'IN_PROGRESS',
+          started_at: new Date().toISOString(),
+          answers: {}
+        })
+        .select()
+        .single();
+
+      return { data, error };
+    } catch (error: any) {
+      return { data: null, error: error.message || error };
+    }
+  },
+
+  saveProgress: async (examId: string, studentId: string, answers: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('submissions')
+        .update({ answers })
+        .eq('exam_id', examId)
+        .eq('student_id', studentId)
+        .select()
+        .single();
+      return { data, error };
+    } catch (error: any) {
+      return { data: null, error: error.message || error };
+    }
+  },
+
+  submitWithScore: async (examId: string, studentId: string, answers: any, tabSwitches: number) => {
+    try {
+      const { data: questions } = await supabase
+        .from('questions')
+        .select('id, type, points, correct_answer')
+        .eq('exam_id', examId);
+
+      let score = 0;
+      let totalPoints = 0;
+      let hasEssay = false;
+
+      if (questions && questions.length > 0) {
+        questions.forEach(q => {
+          const p = parseFloat(q.points || 1);
+          totalPoints += p;
+
+          if (q.type === 'ESSAY') {
+            hasEssay = true;
+          } else if (answers[q.id] === q.correct_answer) {
+            score += p;
+          }
+        });
+      }
+
+      let finalScore = totalPoints > 0 ? (score / totalPoints) * 10 : 0;
+      finalScore = Math.round(finalScore * 10) / 10;
+
+      const newStatus = hasEssay ? 'SUBMITTED' : 'GRADED';
+
+      const { data, error } = await supabase
+        .from('submissions')
+        .update({
+          answers,
+          status: newStatus,
+          score: hasEssay ? null : finalScore,
+          tab_switches: tabSwitches || 0,
+          submitted_at: new Date().toISOString()
+        })
+        .eq('exam_id', examId)
+        .eq('student_id', studentId)
+        .select()
+        .single();
+
+      return { data: { ...data, hasEssay, score: finalScore }, error };
+    } catch (error: any) {
+      return { data: null, error: error.message || error };
+    }
+  }
 };
 
 // ================= AUDIT LOGS =================
@@ -497,17 +636,19 @@ export const flashcardsService = {
     run(
       supabase
         .from(SUPABASE_TABLES.FLASHCARD_SETS)
-        .select('*')
+        .select(`
+        *,
+        flashcards(count)
+        `)
     ),
 
-  getCards: (setId: string) =>
-    run(
-      supabase
-        .from(SUPABASE_TABLES.FLASHCARDS)
-        .select('*')
-        .eq('set_id', setId)
-        .order('order')
-    ),
+  getCards: async (setId: string) => {
+    return await supabase
+      .from('flashcards')
+      .select('*')
+      .eq('set_id', setId)
+      .order('order', { ascending: true });
+  }
 };
 export const flashcardSetsService = {
   create: (payload: any) =>
@@ -537,6 +678,7 @@ export const flashcardSetsService = {
         .eq('id', id)
     ),
 };
+
 // ================= SETTINGS =================
 
 export const settingsService = {
@@ -713,6 +855,168 @@ export const examMatricesService = {
     run(
       supabase
         .from('exam_matrices')
+        .delete()
+        .eq('id', id)
+    ),
+};
+
+// ================= CLASS MANAGEMENT (for Teachers) =================
+
+export const teacherClassesService = {
+  getByTeacher: async (teacherId: string) => {
+    return run(
+      supabase
+        .from('classes')
+        .select(`
+          id,
+          code,
+          name,
+          year_level,
+          course_id,
+          courses!inner(
+            id,
+            name,
+            teacher_id
+          )
+        `)
+        .eq('courses.teacher_id', teacherId)
+        .order('created_at', { ascending: false })
+    );
+  },
+
+  getStudents: async (classId: string) => {
+    return run(
+      supabase
+        .from('student_classes')
+        .select(`
+          id,
+          student_id,
+          students!inner(
+            id,
+            full_name,
+            email,
+            created_at
+          )
+        `)
+        .eq('class_id', classId)
+    );
+  },
+
+  addStudentsByCode: async (classId: string, classCode: string) => {
+    return run(
+      supabase
+        .from('student_classes')
+        .insert([
+          {
+            class_id: classId,
+            student_id: classCode,
+          },
+        ])
+        .select()
+        .single()
+    );
+  },
+
+  removeStudent: async (studentClassId: string) => {
+    return run(
+      supabase
+        .from('student_classes')
+        .delete()
+        .eq('id', studentClassId)
+    );
+  },
+};
+
+// ================= STUDENT CLASS MANAGEMENT (for Students) =================
+
+export const studentClassesService = {
+  getByStudent: async (studentId: string) => {
+    return run(
+      supabase
+        .from('student_classes')
+        .select(`
+          id,
+          class_id,
+          classes!inner(
+            id,
+            code,
+            name,
+            year_level,
+            courses!inner(
+              id,
+              name,
+              teacher_id,
+              teachers!inner(
+                id,
+                full_name,
+                email
+              )
+            )
+          )
+        `)
+        .eq('student_id', studentId)
+        .order('classes.created_at', { ascending: false })
+    );
+  },
+
+  joinByCode: async (studentId: string, classCode: string) => {
+    return run(
+      supabase
+        .from('student_classes')
+        .insert({
+          student_id: studentId,
+          class_id: classCode,
+        })
+        .select()
+        .single()
+    );
+  },
+
+  leaveClass: async (studentClassId: string) => {
+    return run(
+      supabase
+        .from('student_classes')
+        .delete()
+        .eq('id', studentClassId)
+    );
+  },
+};
+
+// ================= LESSONS =================
+
+export const lessonsService = {
+  getByCourse: (courseId: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.LESSONS)
+        .select('*')
+        .eq('course_id', courseId)
+        .order('order_index', { ascending: true })
+    ),
+
+  create: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.LESSONS)
+        .insert(payload)
+        .select()
+        .single()
+    ),
+
+  update: (id: string, payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.LESSONS)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+    ),
+
+  delete: (id: string) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.LESSONS)
         .delete()
         .eq('id', id)
     ),
