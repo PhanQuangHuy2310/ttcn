@@ -2,6 +2,11 @@
 // UPGRADED: Real DB stats, upcoming exams from enrolled classes,
 // score trend mini-chart, recent submissions table
 
+/**
+ * FILE: Dashboard.jsx (Student)
+ * MÔ TẢ: Bảng điều khiển chính dành cho Sinh viên.
+ * CHỨC NĂNG: Hiển thị các bài thi sắp tới, tiến độ học tập, thông báo mới và truy cập nhanh vào các khóa học đang tham gia.
+ */
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

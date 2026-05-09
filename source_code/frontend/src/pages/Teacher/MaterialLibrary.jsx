@@ -1,3 +1,8 @@
+/**
+ * FILE: MaterialLibrary.jsx
+ * MÔ TẢ: Thư viện Học liệu (Tài liệu học tập).
+ * CHỨC NĂNG: Quản lý các file PDF, Video, Bài giảng... phục vụ việc dạy học và làm nguồn để AI tạo câu hỏi.
+ */
 // src/pages/Teacher/MaterialLibrary.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
@@ -5,6 +10,7 @@ import { selectProfile } from '../../features/authentication/authenticationSlice
 import AppLayout from '../../components/AppLayout';
 import { Btn, IconBtn, Card, EmptyState, ErrorBanner, Sk, PageHeader, fmtDate, SearchInput, Modal, Input } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { TEACHER_AI_API } from '../../constant/apiEndpoints';
 
 const SIZE_LABEL = bytes => {
   if (!bytes) return '—';
@@ -169,9 +175,9 @@ const GenerateFlashcardModal = ({ material, open, onClose, profile }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      const response = await fetch('http://localhost:8080/api/ai/generate-flashcards-from-url', {
+      const response = await fetch(TEACHER_AI_API.EXTRACT_FLASHCARDS_URL, {
         method: 'POST',
-        body: JSON.stringify({ pdfUrl: material.file_url, title: material.title, userId: profile.id }),
+        body: JSON.stringify({ pdfUrl: material.file_url, title: material.title }),
         headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) }
       });
 
@@ -259,13 +265,13 @@ const ExtractQuestionsModal = ({ material, open, onClose }) => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch('http://localhost:8080/api/ai/extract-questions-from-url', {
+      const response = await fetch(TEACHER_AI_API.EXTRACT_QUESTIONS_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
         },
-        body: JSON.stringify({ pdfUrl: material.file_url, materialTitle: material.title })
+        body: JSON.stringify({ pdfUrl: material.file_url, title: material.title })
       });
 
       if (!response.ok) throw new Error('Không thể kết nối đến AI Server. Vui lòng kiểm tra Backend.');

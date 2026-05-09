@@ -1,4 +1,9 @@
 // src/pages/Student/Flashcards.jsx
+/**
+ * FILE: Flashcards.jsx
+ * MÔ TẢ: Tính năng học tập qua thẻ ghi nhớ (Flashcards).
+ * CHỨC NĂNG: Cho phép sinh viên ôn tập kiến thức thông qua bộ thẻ lật, hỗ trợ học nhanh các thuật ngữ và định nghĩa.
+ */
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { selectProfile } from '../../features/authentication/authenticationSlice';

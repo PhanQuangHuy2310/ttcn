@@ -1,3 +1,8 @@
+/**
+ * FILE: Exam.java
+ * MÔ TẢ: Thực thể đại diện cho Đề thi.
+ * CHỨC NĂNG: Lưu trữ thông tin tiêu đề, thời gian làm bài, mật khẩu đề thi và các cấu hình chống gian lận.
+ */
 package com.ttcn.backend.entity;
 
 import jakarta.persistence.*;

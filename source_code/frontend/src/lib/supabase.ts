@@ -1,4 +1,9 @@
 // src/lib/supabase.ts
+/**
+ * FILE: supabase.ts
+ * MÔ TẢ: Cấu hình kết nối với Supabase.
+ * CHỨC NĂNG: Khởi tạo Supabase Client bằng URL và Anon Key từ file môi trường (.env).
+ */
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;

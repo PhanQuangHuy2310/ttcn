@@ -1,4 +1,9 @@
 // src/pages/Teacher/Dashboard.jsx
+/**
+ * FILE: Dashboard.jsx (Teacher)
+ * MÔ TẢ: Bảng điều khiển chính dành cho Giáo viên.
+ * CHỨC NĂNG: Hiển thị thống kê tổng quan về khóa học, số lượng sinh viên, bài thi gần đây và các hoạt động mới.
+ */
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

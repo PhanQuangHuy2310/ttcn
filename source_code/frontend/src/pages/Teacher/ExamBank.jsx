@@ -1,4 +1,9 @@
 // src/pages/Teacher/ExamBank.jsx
+/**
+ * FILE: ExamBank.jsx
+ * MÔ TẢ: Ngân hàng Đề thi của Giáo viên.
+ * CHỨC NĂNG: Quản lý danh sách các đề thi đã tạo, cho phép xem chi tiết, chỉnh sửa cấu hình và theo dõi tình trạng làm bài.
+ */
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';

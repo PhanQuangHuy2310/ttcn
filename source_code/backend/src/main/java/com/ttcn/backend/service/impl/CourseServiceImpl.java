@@ -48,7 +48,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {"courses", "course"}, allEntries = true)
+    @CacheEvict(value = {"courses", "course", "courseSearch"}, allEntries = true)
     public CourseDTO createCourse(CourseDTO courseDTO, UUID instructorId) {
         User instructor = null;
         if (instructorId != null) {
@@ -75,7 +75,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {"courses", "course"}, allEntries = true)
+    @CacheEvict(value = {"courses", "course", "courseSearch"}, allEntries = true)
     public CourseDTO updateCourse(UUID id, CourseDTO courseDTO, UUID currentUserId) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", id));
@@ -97,7 +97,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {"courses", "course"}, allEntries = true)
+    @CacheEvict(value = {"courses", "course", "courseSearch"}, allEntries = true)
     public void deleteCourse(UUID id, UUID currentUserId) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", "id", id));
@@ -107,6 +107,16 @@ public class CourseServiceImpl implements CourseService {
             throw new RuntimeException("Forbidden: You are not the owner of this course");
         }
         courseRepository.delete(course);
+    }
+
+    // Tìm kiếm khóa học có tích hợp Redis Cache
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "courseSearch", key = "#keyword + '_' + #pageable.pageNumber")
+    public Page<CourseDTO> searchCourses(String keyword, Pageable pageable) {
+        // Luồng: Request -> Check Redis -> Nếu có trả về luôn -> Nếu không query DB -> Lưu Redis -> Trả về
+        return courseRepository.findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(keyword, keyword, pageable)
+                .map(this::mapToDTO);
     }
 
     @Override

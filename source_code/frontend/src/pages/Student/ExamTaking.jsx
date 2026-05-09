@@ -1,4 +1,9 @@
 // src/pages/Student/ExamTaking.jsx
+/**
+ * FILE: ExamTaking.jsx
+ * MÔ TẢ: Giao diện làm bài thi trực tuyến dành cho Sinh viên.
+ * CHỨC NĂNG: Hiển thị câu hỏi, quản lý thời gian, chống gian lận (tab switch), tự động lưu bài và nộp bài kèm ảnh tự luận.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -6,6 +11,21 @@ import { selectProfile } from '../../features/authentication/authenticationSlice
 import { examsService, questionsService, submissionsService } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { ErrorBanner, Sk, Input, Btn } from '../../components/ui';
+
+// ── LocalStorage helpers ──────────────────────────────────────
+const LS_KEY = (examId) => `exam_answers_${examId}`;
+const saveToLS = (examId, answers) => {
+  try { localStorage.setItem(LS_KEY(examId), JSON.stringify(answers)); } catch {}
+};
+const loadFromLS = (examId) => {
+  try {
+    const raw = localStorage.getItem(LS_KEY(examId));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+const clearLS = (examId) => {
+  try { localStorage.removeItem(LS_KEY(examId)); } catch {}
+};
 
 // ── Exam Password Gate ────────────────────────────────────────
 const PasswordGate = ({ onPass }) => {
@@ -130,10 +150,14 @@ const ExamTaking = () => {
       }
 
       const { data: sub } = await submissionsService.startExam(examId, profile.id);
-      if (sub?.answers && Object.keys(sub.answers).length > 0) {
-        setAnswers(sub.answers); answersRef.current = sub.answers;
+      // Khôi phục answers từ DB hoặc localStorage
+      const lsAnswers = loadFromLS(examId);
+      const dbAnswers = sub?.answers && Object.keys(sub.answers).length > 0 ? sub.answers : null;
+      const restored = dbAnswers || lsAnswers || {};
+      if (Object.keys(restored).length > 0) {
+        setAnswers(restored); answersRef.current = restored;
       }
-      if (sub?.status === 'SUBMITTED' || sub?.status === 'GRADED') setSubmitted(true);
+      if (sub?.status === 'SUBMITTED' || sub?.status === 'GRADED' || sub?.status === 'PENDING_ESSAY_GRADING') setSubmitted(true);
       setLoading(false);
     };
     load();
@@ -164,6 +188,30 @@ const ExamTaking = () => {
   const handleAnswer = (questionId, choice) => {
     const next = { ...answersRef.current, [questionId]: choice };
     answersRef.current = next; setAnswers(next);
+    // Lưu vào localStorage chống mất dữ liệu
+    if (examId) saveToLS(examId, next);
+  };
+
+  // ── Upload ảnh tự luận ────────────────────────────────────────
+  const [essayImages, setEssayImages] = useState({});
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (questionId, file) => {
+    if (!file || !examId || !profile?.id) return;
+    setUploading(true);
+    const path = `essay-images/${examId}/${profile.id}/${questionId}_${Date.now()}_${file.name}`;
+    const { data, error: upErr } = await supabase.storage.from('materials').upload(path, file);
+    if (!upErr && data?.path) {
+      const { data: urlData } = supabase.storage.from('materials').getPublicUrl(data.path);
+      const url = urlData?.publicUrl;
+      if (url) {
+        setEssayImages(prev => ({
+          ...prev,
+          [questionId]: [...(prev[questionId] || []), url]
+        }));
+      }
+    }
+    setUploading(false);
   };
 
   const handleSubmit = useCallback(async () => {
@@ -174,15 +222,25 @@ const ExamTaking = () => {
     const { data, error: err } = await submissionsService.submitWithScore(examId, profile.id, answersRef.current, tabSwitches);
     if (err) { setError('Nộp bài thất bại. Vui lòng thử lại.'); setSubmitting(false); return; }
 
-    // GỬI THÔNG BÁO CHO GIÁO VIÊN: Sử dụng chuẩn message và action_url
+    // Xóa localStorage sau khi nộp thành công
+    clearLS(examId);
+
+    // Lưu ảnh tự luận (nếu có)
+    if (Object.keys(essayImages).length > 0) {
+      try {
+        await supabase.from('submissions').update({ essay_images: essayImages }).eq('exam_id', examId).eq('student_id', profile.id);
+      } catch {}
+    }
+
+    // GỬI THÔNG BÁO CHO GIÁO VIÊN
     try {
       if (exam?.course_id) {
         const { data: courseData } = await supabase.from('courses').select('teacher_id').eq('id', exam.course_id).single();
         if (courseData?.teacher_id) {
           await supabase.from('notifications').insert({
             user_id: courseData.teacher_id,
-            title: '📝 Sinh viên nộp bài',
-            message: `Sinh viên ${profile?.full_name || 'ẩn danh'} vừa nộp bài thi "${exam.title}".`,
+            title: data?.hasEssay ? '📝 Bài thi cần chấm tự luận' : '📝 Sinh viên nộp bài',
+            message: `Sinh viên ${profile?.full_name || 'ẩn danh'} vừa nộp bài thi "${exam.title}".${data?.hasEssay ? ' Bài có phần tự luận cần chấm.' : ` Điểm: ${data?.mcqScore}`}`,
             type: 'SUBMISSION',
             action_url: `/teacher/essay-grading?examId=${exam.id}`,
             read_status: false
@@ -190,13 +248,13 @@ const ExamTaking = () => {
         }
       }
     } catch (e) {
-      console.error("Lỗi gửi thông báo cho GV", e);
+      console.error('Lỗi gửi thông báo cho GV', e);
     }
 
     setSubmitResult(data);
     setSubmitted(true);
     setSubmitting(false);
-  }, [submitted, submitting, examId, profile, tabSwitches, exam]);
+  }, [submitted, submitting, examId, profile, tabSwitches, exam, essayImages]);
 
   if (needsPassword && !passwordPassed) return <PasswordGate onPass={() => { setNeedsPassword(false); setPasswordPassed(true); }} />;
   if (!examId || examId === 'undefined') return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500">Mã đề thi không hợp lệ</div>;
@@ -206,17 +264,36 @@ const ExamTaking = () => {
   if (submitted) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-xl p-10 max-w-md w-full text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <span className="material-symbols-outlined text-green-600 text-4xl">task_alt</span>
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${submitResult?.hasEssay ? 'bg-amber-100' : 'bg-green-100'}`}>
+          <span className={`material-symbols-outlined text-4xl ${submitResult?.hasEssay ? 'text-amber-600' : 'text-green-600'}`}>
+            {submitResult?.hasEssay ? 'pending' : 'task_alt'}
+          </span>
         </div>
         <h2 className="text-2xl font-black text-slate-800 mb-2">Nộp bài thành công!</h2>
         <p className="text-slate-500 mb-6">
-          {submitResult?.hasEssay ? 'Bài của bạn sẽ được giảng viên chấm và thông báo kết quả sớm nhất.' : 'Bài thi đã được chấm điểm tự động.'}
+          {submitResult?.hasEssay
+            ? 'Phần trắc nghiệm đã được chấm tự động. Phần tự luận sẽ được giảng viên chấm và thông báo kết quả.'
+            : 'Bài thi đã được chấm điểm tự động.'}
         </p>
         <div className="bg-slate-50 rounded-2xl p-5 mb-6 text-left space-y-3">
           <div className="flex justify-between text-sm"><span className="text-slate-500">Đề thi</span><span className="font-semibold">{exam?.title}</span></div>
-          {submitResult?.score !== null && submitResult?.score !== undefined && (
-            <div className="flex justify-between text-sm"><span className="text-slate-500">Điểm số</span><span className="text-2xl font-black text-primary">{submitResult.score}</span></div>
+          {submitResult?.totalMcq > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Trắc nghiệm</span>
+              <span className="font-bold text-primary">{submitResult.correctMcq}/{submitResult.totalMcq} câu đúng</span>
+            </div>
+          )}
+          {submitResult?.mcqScore !== undefined && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">{submitResult?.hasEssay ? 'Điểm TN (tạm)' : 'Điểm số'}</span>
+              <span className="text-2xl font-black text-primary">{submitResult.mcqScore}</span>
+            </div>
+          )}
+          {submitResult?.hasEssay && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Trạng thái</span>
+              <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">Chờ chấm tự luận</span>
+            </div>
           )}
         </div>
         <div className="flex gap-3">
@@ -297,13 +374,35 @@ const ExamTaking = () => {
                   </div>
                 )}
                 {q.type === 'ESSAY' && (
-                  <textarea
-                    value={answers[q.id] ?? ''}
-                    onChange={e => handleAnswer(q.id, e.target.value)}
-                    placeholder="Nhập câu trả lời của bạn..."
-                    rows={6}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-                  />
+                  <div className="space-y-3">
+                    <textarea
+                      value={answers[q.id] ?? ''}
+                      onChange={e => handleAnswer(q.id, e.target.value)}
+                      placeholder="Nhập câu trả lời của bạn..."
+                      rows={6}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+                    />
+                    {/* Upload ảnh cho tự luận */}
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-600 cursor-pointer transition-colors">
+                        <span className="material-symbols-outlined text-base">image</span>
+                        Đính kèm ảnh
+                        <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleImageUpload(q.id, e.target.files[0])} />
+                      </label>
+                      {uploading && <span className="text-xs text-slate-400">Đang tải ảnh...</span>}
+                    </div>
+                    {/* Hiện ảnh đã upload */}
+                    {essayImages[q.id]?.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {essayImages[q.id].map((url, i) => (
+                          <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
+                            <img src={url} alt={`Ảnh ${i+1}`} className="w-full h-full object-cover" />
+                            <button onClick={() => setEssayImages(prev => ({ ...prev, [q.id]: prev[q.id].filter((_, j) => j !== i) }))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600">×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="px-8 py-4 border-t border-slate-100 flex justify-between gap-3 bg-slate-50/30">

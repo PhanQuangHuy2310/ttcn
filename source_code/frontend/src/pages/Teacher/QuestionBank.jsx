@@ -1,4 +1,9 @@
 // src/pages/Teacher/QuestionBank.jsx
+/**
+ * FILE: QuestionBank.jsx
+ * MÔ TẢ: Ngân hàng Câu hỏi tập trung.
+ * CHỨC NĂNG: Lưu trữ và quản lý hàng loạt câu hỏi trắc nghiệm/tự luận để tái sử dụng cho các đề thi khác nhau.
+ */
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { selectProfile } from '../../features/authentication/authenticationSlice';

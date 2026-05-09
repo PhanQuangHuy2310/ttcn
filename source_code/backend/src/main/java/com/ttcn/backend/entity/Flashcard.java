@@ -31,6 +31,9 @@ public class Flashcard {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "hint", columnDefinition = "TEXT")
+    private String hint;
+
     // Postgres dùng keyword "order", cần dùng dấu ngoặc kép để tránh lỗi SQL syntax
     @Column(name = "\"order\"")
     private Integer order;

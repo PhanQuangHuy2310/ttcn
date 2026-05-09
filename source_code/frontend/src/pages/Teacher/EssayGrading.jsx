@@ -1,4 +1,9 @@
 // src/pages/Teacher/EssayGrading.jsx
+/**
+ * FILE: EssayGrading.jsx
+ * MÔ TẢ: Trang quản lý chấm bài tự luận dành cho Giáo viên.
+ * CHỨC NĂNG: Hiển thị danh sách các bài thi đang chờ chấm tự luận, cho phép xem ảnh bài làm và nhập điểm.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -133,7 +138,7 @@ const EssayGrading = () => {
   };
 
   const essayQuestions = questions.filter(q => q.type === 'ESSAY');
-  const filtered = filter === 'PENDING' ? submissions.filter(s => s.status !== 'GRADED') : submissions;
+  const filtered = filter === 'PENDING' ? submissions.filter(s => s.status !== 'GRADED' && s.status !== 'NOT_STARTED' && s.status !== 'IN_PROGRESS') : submissions;
 
   return (
     <AppLayout role="TEACHER">

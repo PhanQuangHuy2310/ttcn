@@ -1,3 +1,8 @@
+/**
+ * FILE: supabaseService.ts
+ * MÔ TẢ: Dịch vụ trung tâm xử lý mọi tương tác với Supabase Database.
+ * CHỨC NĂNG: Bao gồm các hàm CRUD cho Người dùng, Khóa học, Bài thi, và đặc biệt là Logic chấm điểm trắc nghiệm tự động.
+ */
 // src/services/supabaseService.ts
 
 import { supabase } from '../lib/supabase';
@@ -260,6 +265,43 @@ export const classesService = {
         .delete()
         .eq('id', id)
     ),
+
+  // Tham gia lớp học bằng mã code (Dành cho Học sinh)
+  joinByCode: async (studentId: string, code: string) => {
+    // 1. Tìm lớp học dựa trên mã code
+    const { data: cls, error: clsErr } = await supabase
+      .from(SUPABASE_TABLES.CLASSES)
+      .select('id')
+      .eq('code', code)
+      .maybeSingle();
+
+    if (clsErr) return { data: null, error: clsErr.message };
+    if (!cls) return { data: null, error: 'Mã lớp học không chính xác hoặc không tồn tại.' };
+
+    // 2. Kiểm tra xem học sinh đã tham gia lớp này chưa để tránh trùng lặp
+    const { data: existing, error: existErr } = await supabase
+      .from(SUPABASE_TABLES.STUDENT_CLASSES)
+      .select('id')
+      .eq('class_id', cls.id)
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (existErr) return { data: null, error: existErr.message };
+    if (existing) return { data: null, error: 'Bạn đã tham gia lớp học này rồi.' };
+
+    // 3. Thực hiện đăng ký tham gia lớp học
+    return run(
+      supabase
+        .from(SUPABASE_TABLES.STUDENT_CLASSES)
+        .insert({
+          class_id: cls.id,
+          student_id: studentId,
+          enrolled_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+    );
+  },
 };
 
 // ================= EXAMS =================
@@ -568,39 +610,60 @@ export const submissionsService = {
 
   submitWithScore: async (examId: string, studentId: string, answers: any, tabSwitches: number) => {
     try {
+      // 1. Lấy danh sách câu hỏi từ Database
       const { data: questions } = await supabase
         .from('questions')
         .select('id, type, points, correct_answer')
         .eq('exam_id', examId);
 
-      let score = 0;
-      let totalPoints = 0;
-      let hasEssay = false;
-
-      if (questions && questions.length > 0) {
-        questions.forEach(q => {
-          const p = parseFloat(q.points || 1);
-          totalPoints += p;
-
-          if (q.type === 'ESSAY') {
-            hasEssay = true;
-          } else if (answers[q.id] === q.correct_answer) {
-            score += p;
-          }
-        });
+      if (!questions || questions.length === 0) {
+        return { data: null, error: 'Không tìm thấy câu hỏi cho đề thi này.' };
       }
 
-      let finalScore = totalPoints > 0 ? (score / totalPoints) * 10 : 0;
-      finalScore = Math.round(finalScore * 10) / 10;
+      // 2. Phân loại câu hỏi MCQ vs ESSAY
+      const mcqQuestions = questions.filter((q: any) => q.type === 'MCQ');
+      const essayQuestions = questions.filter((q: any) => q.type === 'ESSAY');
+      const hasEssay = essayQuestions.length > 0;
+      const totalMcq = mcqQuestions.length;
 
-      const newStatus = hasEssay ? 'SUBMITTED' : 'GRADED';
+      // 3. Tạo 2 mảng: student_answers[] và correct_answers[] (chỉ MCQ)
+      const studentAnswers: (string | null)[] = mcqQuestions.map((q: any) => answers[q.id] ?? null);
+      const correctAnswers: (string | null)[] = mcqQuestions.map((q: any) => q.correct_answer);
 
+      // 4. Thuật toán đối chiếu (compare) 2 mảng để đếm số câu đúng
+      let correctCount = 0;
+      for (let i = 0; i < totalMcq; i++) {
+        if (studentAnswers[i] !== null && studentAnswers[i] === correctAnswers[i]) {
+          correctCount++;
+        }
+      }
+
+      // 5. Tính điểm trắc nghiệm: (10 / tổng_số_câu_TN) * số_câu_đúng
+      let mcqScore = totalMcq > 0 ? (10 / totalMcq) * correctCount : 0;
+      mcqScore = Math.round(mcqScore * 100) / 100; // Làm tròn 2 chữ số
+
+      // 6. Xử lý luồng trạng thái
+      let newStatus: string;
+      let finalScore: number | null;
+
+      if (!hasEssay) {
+        // Đề thi CHỈ có trắc nghiệm -> Lưu điểm tổng, status GRADED
+        newStatus = 'GRADED';
+        finalScore = mcqScore;
+      } else {
+        // Đề thi CÓ câu tự luận -> Lưu điểm TN tạm thời, status PENDING_ESSAY_GRADING
+        newStatus = 'PENDING_ESSAY_GRADING';
+        finalScore = null; // Chưa có điểm tổng, chờ GV chấm tự luận
+      }
+
+      // 7. Cập nhật submission trong Database
       const { data, error } = await supabase
         .from('submissions')
         .update({
           answers,
           status: newStatus,
-          score: hasEssay ? null : finalScore,
+          score: finalScore,
+          mcq_score: mcqScore, // Lưu điểm TN riêng (nếu cột tồn tại)
           tab_switches: tabSwitches || 0,
           submitted_at: new Date().toISOString()
         })
@@ -609,7 +672,19 @@ export const submissionsService = {
         .select()
         .single();
 
-      return { data: { ...data, hasEssay, score: finalScore }, error };
+      // 8. Trả về kết quả chi tiết
+      return {
+        data: {
+          ...data,
+          hasEssay,
+          mcqScore,
+          totalMcq,
+          correctMcq: correctCount,
+          essayQuestionIds: essayQuestions.map((q: any) => q.id),
+          score: finalScore
+        },
+        error
+      };
     } catch (error: any) {
       return { data: null, error: error.message || error };
     }

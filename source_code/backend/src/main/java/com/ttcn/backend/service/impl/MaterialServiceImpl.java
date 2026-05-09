@@ -8,7 +8,10 @@ import com.ttcn.backend.repository.LessonRepository;
 import com.ttcn.backend.repository.MaterialRepository;
 import com.ttcn.backend.service.MaterialService;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +25,8 @@ public class MaterialServiceImpl implements MaterialService {
     private final LessonRepository lessonRepository;
 
     @Override
+    @Transactional
+    @CacheEvict(value = {"materials", "materialSearch"}, allEntries = true)
     public MaterialDTO createMaterial(MaterialDTO materialDto) {
         Lesson lesson = lessonRepository.findById(materialDto.getLessonId())
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + materialDto.getLessonId()));
@@ -32,6 +37,8 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "materials", key = "'lesson_' + #lessonId")
     public List<MaterialDTO> getMaterialsByLesson(UUID lessonId) {
         return materialRepository.findByLessonId(lessonId).stream()
                 .map(this::mapToDto)
@@ -39,6 +46,8 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "materials", key = "#id")
     public MaterialDTO getMaterialById(UUID id) {
         Material material = materialRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Material not found with id: " + id));
@@ -46,11 +55,24 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
+    @Transactional
+    @CacheEvict(value = {"materials", "materialSearch"}, allEntries = true)
     public void deleteMaterial(UUID id) {
         if (!materialRepository.existsById(id)) {
             throw new ResourceNotFoundException("Material not found with id: " + id);
         }
         materialRepository.deleteById(id);
+    }
+
+    // Tìm kiếm học liệu có tích hợp Redis Cache
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "materialSearch", key = "#keyword")
+    public List<MaterialDTO> searchMaterials(String keyword) {
+        // Luồng: Check Redis -> Nếu có trả về luôn -> Nếu không query DB -> Lưu Redis -> Trả về
+        return materialRepository.findByTitleContainingIgnoreCase(keyword).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
 
     private MaterialDTO mapToDto(Material material) {

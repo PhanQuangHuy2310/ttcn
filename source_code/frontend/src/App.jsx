@@ -3,12 +3,18 @@
 // All routes protected by role-specific PrivateRoute wrappers.
 
 import React, { Suspense, lazy } from 'react';
+/**
+ * FILE: App.jsx
+ * MÔ TẢ: File cấu hình định tuyến (Routing) chính của ứng dụng Frontend.
+ * CHỨC NĂNG: Định nghĩa các đường dẫn (URL) và phân quyền truy cập trang cho Sinh viên, Giáo viên và Admin.
+ */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectProfile, selectIsAuthenticated } from './features/authentication/authenticationSlice';
 
 // ── Auth pages (eager — needed immediately) ──────────────────
 import LoginPage from './pages/Auth/LoginPage';
+import RegisterPage from './pages/Auth/RegisterPage';
 
 // ── Lazy load all feature pages ──────────────────────────────
 // Admin
@@ -26,6 +32,7 @@ const MaterialLibrary = lazy(() => import('./pages/Teacher/MaterialLibrary'));
 const TeacherReports = lazy(() => import('./pages/Teacher/Reports'));
 const ExamMatrices = lazy(() => import('./pages/Teacher/ExamMatrices'));
 const EssayGrading = lazy(() => import('./pages/Teacher/EssayGrading'));
+const AiQuestionGenerator = lazy(() => import('./pages/Teacher/AiQuestionGenerator'));
 // Student
 const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
 const StudentClasses = lazy(() => import('./pages/Student/Classes'));
@@ -84,6 +91,7 @@ const App = () => (
 
         {/* Auth */}
         <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
+        <Route path="/register" element={<RequireGuest><RegisterPage /></RequireGuest>} />
 
         {/* ─── Admin ───────────────────────────────────────── */}
         <Route path="/admin" element={<RequireAuth allowedRoles={['ADMIN']}><Navigate to="/admin/dashboard" replace /></RequireAuth>} />
@@ -103,6 +111,7 @@ const App = () => (
         <Route path="/teacher/exam-matrices" element={<RequireAuth allowedRoles={['TEACHER']}><ExamMatrices /></RequireAuth>} />
         {/* Sửa lại props allowedRoles cho chuẩn */}
         <Route path="/teacher/essay-grading" element={<RequireAuth allowedRoles={['TEACHER']}><EssayGrading /></RequireAuth>} />
+        <Route path="/teacher/ai-generator" element={<RequireAuth allowedRoles={['TEACHER']}><AiQuestionGenerator /></RequireAuth>} />
 
         {/* ─── Student ─────────────────────────────────────── */}
         <Route path="/student" element={<RequireAuth allowedRoles={['STUDENT']}><Navigate to="/student/dashboard" replace /></RequireAuth>} />

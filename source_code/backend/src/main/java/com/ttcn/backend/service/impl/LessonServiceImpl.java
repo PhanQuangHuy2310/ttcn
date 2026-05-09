@@ -1,3 +1,8 @@
+/**
+ * FILE: LessonServiceImpl.java
+ * MÔ TẢ: Lớp triển khai (Implementation) các nghiệp vụ quản lý Bài học (Lessons/Modules).
+ * CHỨC NĂNG: Xử lý logic lấy danh sách bài học theo khóa học, phân trang, và các thao tác CRUD bài học.
+ */
 package com.ttcn.backend.service.impl;
 
 import com.ttcn.backend.dto.LessonDTO;

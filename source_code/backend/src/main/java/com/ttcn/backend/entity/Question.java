@@ -1,3 +1,8 @@
+/**
+ * FILE: Question.java
+ * MÔ TẢ: Thực thể đại diện cho Câu hỏi trong đề thi.
+ * CHỨC NĂNG: Lưu trữ nội dung câu hỏi, loại câu hỏi (trắc nghiệm/tự luận), các lựa chọn và đáp án đúng.
+ */
 package com.ttcn.backend.entity;
 
 import jakarta.persistence.*;

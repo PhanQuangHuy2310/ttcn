@@ -1,89 +1,78 @@
 server:
-  port: 8080
+  port: 8081
 
 spring:
   application:
-    name: dhdedu-system
-
+    name: ttcn-backend
+  
+  # Cấu hình Database (PostgreSQL / Supabase)
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
-    hikari:
-      max-lifetime: 580000
-      keepalive-time: 30000
-      connection-timeout: 30000
-      validation-timeout: 3000
-      maximum-pool-size: 5
-      minimum-idle: 1
+  
+  # Cấu hình Hibernate / JPA
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  # Cấu hình Security / OAuth2 với Supabase
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SUPABASE_URL}/auth/v1
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+          issuer-uri: ${SUPABASE_AUTH_ISSUER}
+          jwk-set-uri: ${SUPABASE_AUTH_JWK_SET_URI}
 
+  # Cấu hình giới hạn kích thước file upload (Dành cho việc upload tài liệu PDF)
   servlet:
     multipart:
-      max-file-size: 20MB
-      max-request-size: 20MB
-
-  # Redis
+      max-file-size: 10MB
+      max-request-size: 10MB
+  
+  # Cấu hình Redis
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-
-  # Mail
+      timeout: 3000ms
+  
+  # Cấu hình Cache
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000ms # 10 phút
+      cache-null-values: false
+  
+  # Cấu hình Gửi Mail (SMTP)
   mail:
-    host: ${SMTP_HOST:smtp.gmail.com}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
-# Logging
-logging:
-  level:
-    vn.dhdedu: DEBUG
-    org.hibernate.SQL: info
-
-# Supabase
-supabase:
-  url: ${SUPABASE_URL}
-  key:
-    service-role-key: ${SUPABASE_SERVICE_KEY}
-  jwt:
-    secret: ${JWT_SECRET}
-  bucket:
-    name: SUPABASE_BUCKET:dhdedu-files
-
-# Upload local fallback
-upload:
-  dir: ${UPLOAD_DIR:uploads}
-
-# S3 (optional - không dùng thì disable)
-aws:
-  s3:
-    enabled: ${AWS_S3_ENABLED:false}
-    endpoint: ${AWS_S3_ENDPOINT:dummy}
-    access-key: ${AWS_ACCESS_KEY:dummy}
-    secret-key: ${AWS_SECRET_KEY:dummy}
-    bucket-name: ${AWS_S3_BUCKET:dummy}
-    region: ${AWS_REGION:ap-southeast-1}
+# Cấu hình cho Google Gemini AI
 gemini:
   api:
-    key: ${API_KEY}
+    key: ${GEMINI_API_KEY}
+
+# Cấu hình Log (Ghi nhật ký hệ thống)
+logging:
+  level:
+    root: INFO
+    com.ttcn.backend: DEBUG

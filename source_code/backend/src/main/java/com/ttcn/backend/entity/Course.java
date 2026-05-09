@@ -1,3 +1,8 @@
+/**
+ * FILE: Course.java
+ * MÔ TẢ: Thực thể đại diện cho một Khóa học.
+ * CHỨC NĂNG: Lưu trữ thông tin tên khóa học, mã môn học, giáo viên phụ trách và trình độ học vấn.
+ */
 package com.ttcn.backend.entity;
 
 import jakarta.persistence.*;

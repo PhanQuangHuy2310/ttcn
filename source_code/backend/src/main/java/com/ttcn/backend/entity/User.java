@@ -1,3 +1,8 @@
+/**
+ * FILE: User.java
+ * MÔ TẢ: Thực thể đại diện cho Người dùng (Admin, Giáo viên, Sinh viên).
+ * CHỨC NĂNG: Lưu trữ thông tin cá nhân, email, mật khẩu, quyền hạn (Role) và trạng thái tài khoản.
+ */
 package com.ttcn.backend.entity;
 
 import jakarta.persistence.*;
@@ -19,7 +24,7 @@ import java.time.OffsetDateTime;
 public class User {
 
     @Id
-    @Column(name = "user_id")
+    @Column(name = "id")
     private UUID userId;
 
     @Enumerated(EnumType.STRING)

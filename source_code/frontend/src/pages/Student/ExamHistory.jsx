@@ -1,4 +1,9 @@
 // src/pages/Student/ExamHistory.jsx
+/**
+ * FILE: ExamHistory.jsx
+ * MÔ TẢ: Trang hiển thị lịch sử thi của Sinh viên.
+ * CHỨC NĂNG: Cho phép học sinh xem lại danh sách các bài thi đã làm, điểm số và trạng thái (Đã chấm/Chờ chấm).
+ */
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -58,7 +63,7 @@ const ExamHistory = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
             { label: 'Tổng bài thi', value: submissions.length, icon: 'assignment', bg: 'bg-blue-50 text-blue-600' },
-            { label: 'Đã nộp/Chấm xong', value: submissions.filter(s => s.status === 'SUBMITTED' || s.status === 'GRADED').length, icon: 'task_alt', bg: 'bg-green-50 text-green-600' },
+            { label: 'Đã nộp/Chấm xong', value: submissions.filter(s => s.status === 'SUBMITTED' || s.status === 'GRADED' || s.status === 'PENDING_ESSAY_GRADING').length, icon: 'task_alt', bg: 'bg-green-50 text-green-600' },
             { label: 'Đang làm', value: submissions.filter(s => s.status === 'IN_PROGRESS').length, icon: 'edit_note', bg: 'bg-orange-50 text-orange-600' },
             { label: 'Điểm trung bình', value: avgScore ?? '—', icon: 'grade', bg: 'bg-purple-50 text-purple-600' },
           ].map((c, i) => (
@@ -84,12 +89,12 @@ const ExamHistory = () => {
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
-        {['ALL', 'NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED', 'GRADED'].map(s => (
+        {['ALL', 'NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED', 'PENDING_ESSAY_GRADING', 'GRADED'].map(s => (
           <button key={s} onClick={() => setFilter(s)}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filter === s ? 'bg-primary text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
           >
-            {s === 'ALL' ? 'Tất cả' : s === 'NOT_STARTED' ? 'Chưa làm' : s === 'IN_PROGRESS' ? 'Đang làm' : s === 'GRADED' ? 'Đã chấm' : 'Đã nộp'}
+            {s === 'ALL' ? 'Tất cả' : s === 'NOT_STARTED' ? 'Chưa làm' : s === 'IN_PROGRESS' ? 'Đang làm' : s === 'GRADED' ? 'Đã chấm' : s === 'PENDING_ESSAY_GRADING' ? 'Chờ chấm TL' : 'Đã nộp'}
           </button>
         ))}
       </div>
@@ -133,7 +138,7 @@ const ExamHistory = () => {
                   <div className="col-span-1 flex justify-end">
 
                     {/* Đã sửa URL và cho phép cả bài GRADED được xem lại */}
-                    {sub.status === 'SUBMITTED' || sub.status === 'GRADED' ? (
+                    {sub.status === 'SUBMITTED' || sub.status === 'GRADED' || sub.status === 'PENDING_ESSAY_GRADING' ? (
                       <Link to={`/student/review?id=${sub.exam_id}`}
                         className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                         title="Xem lại bài làm"

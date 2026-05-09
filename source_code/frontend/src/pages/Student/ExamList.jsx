@@ -1,4 +1,9 @@
 // src/pages/Student/ExamList.jsx
+/**
+ * FILE: ExamList.jsx
+ * MÔ TẢ: Danh sách các bài thi Sinh viên có thể tham gia.
+ * CHỨC NĂNG: Hiển thị danh sách đề thi theo lớp/khóa học, cho phép nhấn vào để bắt đầu làm bài (yêu cầu mật khẩu nếu có).
+ */
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '../../components/AppLayout';

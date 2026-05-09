@@ -1,6 +1,8 @@
-// src/components/ui.jsx
-// DHDedu design system — single source of truth for all UI primitives.
-// UPDATED: Added Button component, Modal, ConfirmDialog, Toast helpers, improved Skeleton.
+/**
+ * FILE: ui.jsx
+ * MÔ TẢ: Thư viện các thành phần giao diện (UI Components) dùng chung.
+ * CHỨC NĂNG: Cung cấp các Button, Input, Card, Badge, Modal... được thiết kế theo phong cách hiện đại và đồng bộ.
+ */
 
 import React, { useEffect, useRef } from 'react';
 
@@ -242,6 +244,11 @@ export const StatusBadge = ({ status }) => {
     NOT_STARTED: { label: 'Chưa làm', cls: 'bg-slate-100 text-slate-600' },
     IN_PROGRESS: { label: 'Đang làm', cls: 'bg-blue-100 text-blue-700' },
     SUBMITTED: { label: 'Đã nộp', cls: 'bg-green-100 text-green-700' },
+    GRADED: { label: 'Đã chấm', cls: 'bg-purple-100 text-purple-700' },
+    PENDING_ESSAY_GRADING: { label: 'Chờ chấm TL', cls: 'bg-amber-100 text-amber-700' },
+    ACTIVE: { label: 'Đang mở', cls: 'bg-green-100 text-green-700' },
+    UPCOMING: { label: 'Sắp diễn ra', cls: 'bg-blue-100 text-blue-700' },
+    ENDED: { label: 'Đã kết thúc', cls: 'bg-slate-100 text-slate-600' },
   };
   const { label, cls } = map[status] ?? { label: status, cls: 'bg-slate-100 text-slate-500' };
   return <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${cls}`}>{label}</span>;

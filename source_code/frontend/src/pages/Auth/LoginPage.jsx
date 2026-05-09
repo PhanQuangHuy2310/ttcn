@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { loginThunk, selectAuthLoading, selectAuthError } from '../../features/authentication/authenticationSlice';
 
 const LoginPage = () => {
@@ -148,9 +149,17 @@ const LoginPage = () => {
             </button>
           </form>
 
-          <p className="text-center text-xs text-slate-400 mt-8">
-            Nếu bạn gặp sự cố khi đăng nhập, vui lòng liên hệ bộ phận quản trị hệ thống.
-          </p>
+          <div className="mt-8 text-center text-sm">
+            <p className="text-slate-500 mb-2">
+              Chưa có tài khoản?{' '}
+              <Link to="/register" className="text-primary font-bold hover:underline">
+                Đăng ký ngay
+              </Link>
+            </p>
+            <p className="text-xs text-slate-400">
+              Nếu bạn gặp sự cố khi đăng nhập, vui lòng liên hệ bộ phận quản trị hệ thống.
+            </p>
+          </div>
         </div>
       </div>
     </div>

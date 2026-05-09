@@ -8,5 +8,6 @@ public interface MaterialService {
     MaterialDTO createMaterial(MaterialDTO materialDto);
     List<MaterialDTO> getMaterialsByLesson(UUID lessonId);
     MaterialDTO getMaterialById(UUID id);
+    List<MaterialDTO> searchMaterials(String keyword);
     void deleteMaterial(UUID id);
 }
