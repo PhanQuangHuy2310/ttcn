@@ -13,4 +13,7 @@ public interface AiFlashcardService {
     // New Advanced Methods
     SseEmitter extractFlashcardsStream(MultipartFile file);
     void saveFlashcardDraft(SaveFlashcardDraftRequest request, UUID teacherId) throws Exception;
+
+    // Student method to extract flashcards directly from uploaded PDF
+    List<Map<String, String>> extractFlashcards(MultipartFile file) throws Exception;
 }

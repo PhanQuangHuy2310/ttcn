@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ttcn-redis
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ttcn-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Ghi đè cấu hình REDIS_HOST vì trong Docker nó phải kết nối qua tên service
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ttcn-frontend
+    ports:
+      # Chạy frontend ở port 3000 theo yêu cầu
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

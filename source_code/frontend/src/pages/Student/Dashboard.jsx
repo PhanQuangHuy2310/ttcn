@@ -86,7 +86,7 @@ const StudentDashboard = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard icon="school"    iconBg="bg-blue-50 text-blue-600"   label="Lớp đang học"  value={enrollments.length}  loading={loading} />
+        <StatCard icon="school"    iconBg="bg-blue-50 text-blue-600"   label="Lớp đang học"  value={enrollments.length}  loading={loading} onClick={() => navigate('/student/classes')} />
         <StatCard icon="quiz"      iconBg="bg-purple-50 text-purple-600" label="Bài đã nộp" value={submissions.length}  loading={loading} />
         <StatCard icon="grade"     iconBg="bg-orange-50 text-orange-600" label="Điểm TB"    value={avgScore ? `${avgScore}/10` : '—'} loading={loading} />
         <StatCard icon="task_alt"  iconBg="bg-green-50 text-green-600"  label="Tỷ lệ đạt"   value={`${passRate}%`}      loading={loading} />

@@ -246,7 +246,7 @@ export const StatusBadge = ({ status }) => {
     SUBMITTED: { label: 'Đã nộp', cls: 'bg-green-100 text-green-700' },
     GRADED: { label: 'Đã chấm', cls: 'bg-purple-100 text-purple-700' },
     PENDING_ESSAY_GRADING: { label: 'Chờ chấm TL', cls: 'bg-amber-100 text-amber-700' },
-    ACTIVE: { label: 'Đang mở', cls: 'bg-green-100 text-green-700' },
+    ACTIVE: { label: 'Đang thi', cls: 'bg-green-100 text-green-700' },
     UPCOMING: { label: 'Sắp diễn ra', cls: 'bg-blue-100 text-blue-700' },
     ENDED: { label: 'Đã kết thúc', cls: 'bg-slate-100 text-slate-600' },
   };

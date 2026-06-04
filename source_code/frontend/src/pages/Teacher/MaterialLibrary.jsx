@@ -54,7 +54,7 @@ const UploadArea = ({ onUploaded, profile }) => {
 
   useEffect(() => {
     if (form.courseId) {
-      supabase.from('lessons').select('id, title').eq('course_id', form.courseId).order('order_index', { ascending: true })
+      supabase.from('lessons').select('id, title').eq('course_id', form.courseId).order('order', { ascending: true })
         .then(({ data }) => {
           setLessons(data || []);
           if (!data || data.length === 0) setForm(f => ({ ...f, lessonId: 'AUTO_CREATE' }));
@@ -80,7 +80,7 @@ const UploadArea = ({ onUploaded, profile }) => {
 
       if (targetLessonId === 'AUTO_CREATE') {
         const { data: newLesson, error: lessonErr } = await supabase.from('lessons').insert({
-          course_id: form.courseId, title: 'Tài liệu chung', order_index: 1
+          course_id: form.courseId, title: 'Tài liệu chung', order: 1
         }).select().single();
         if (lessonErr) throw new Error('Lỗi khi tạo bài học: ' + lessonErr.message);
 
