@@ -37,10 +37,6 @@ import java.util.Map;
 @EnableMethodSecurity // Cho phép phân quyền chi tiết trên từng hàm xử lý thông qua các Annotations như @PreAuthorize
 public class SecurityConfig {
 
-    // Lấy chuỗi khóa bí mật (Secret Key) từ biến môi trường của hệ thống
-    @Value("${JWT_SECRET}")
-    private String jwtSecret;
-
     // Đường dẫn URI để lấy cấu hình khóa công khai (JWK Set) của Supabase nhằm xác thực chữ ký token
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
