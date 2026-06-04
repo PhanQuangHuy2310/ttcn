@@ -57,6 +57,12 @@ public class UserServiceImpl implements UserService {
         user.setStudentId(userDto.getStudentId());
         user.setAvatarUrl(userDto.getAvatarUrl());
         user.setPhoneNumber(userDto.getPhoneNumber());
+        if (userDto.getIsActive() != null) {
+            user.setIsActive(userDto.getIsActive());
+        }
+        if (userDto.getStatus() != null) {
+            user.setStatus(userDto.getStatus());
+        }
 
         User updatedUser = userRepository.save(user);
         return mapToDto(updatedUser);

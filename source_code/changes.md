@@ -47,3 +47,25 @@ Tài liệu này ghi lại tất cả các thay đổi, tính năng đã thực 
   - **[MODIFY]** [Flashcards.jsx](file:///d:/ttcn/ttcn/source_code/frontend/src/pages/Student/Flashcards.jsx): Thêm giao diện tải file PDF và modal tương tác sinh Flashcard từ AI.
 
 ---
+
+### 3. Tối ưu hóa, Bổ sung chú thích sư phạm & Quản lý tài khoản vô hiệu hóa (Disabled User Accounts & Refactoring)
+
+- **Tính năng:**
+  - **Chú thích mã nguồn bằng tiếng Việt**: Bổ sung chú thích cực kỳ chi tiết cho cả Backend (Spring Boot) và Frontend (React, Vite, Redux, Supabase Client) nhằm phục vụ mục đích sư phạm, giúp người mới bắt đầu dễ dàng hiểu rõ luồng xử lý.
+  - **Quản lý trạng thái tài khoản (Bật/Tắt/Xóa)**: Admin có thể bật, tắt, hoặc xóa tài khoản của người dùng từ giao diện quản trị (`/admin/users`).
+  - **Chặn tài khoản bị vô hiệu hóa**: Bổ sung logic kiểm tra trạng thái kích hoạt (`isActive`, `status`) trong Redux slice `authenticationSlice.ts` và Spring Boot. Khi tài khoản bị vô hiệu hóa, hệ thống lập tức đăng xuất và hiển thị thông báo lỗi: *"Tài khoản đã bị vô hiệu hóa, vui lòng liên hệ admin để biết thêm chi tiết"*.
+  - **Sửa lỗi biên dịch JDK 21 & Lombok**: Nâng cấp phiên bản `maven-compiler-plugin` lên `3.12.1` trong file `pom.xml` để khắc phục lỗi biên dịch `TypeTag :: UNKNOWN` trên môi trường Java 21 + Lombok.
+  - **Sửa lỗi đồng bộ form/payload**: Sửa đổi form binding trong `FlashcardReviewForm.jsx` (từ `front`/`back` sang `frontText`/`backText`) và bổ sung tham số `draftId` bị thiếu khi lưu Flashcard trong `AiQuestionGenerator.jsx`.
+- **Các file thay đổi/tạo mới:**
+  - **[MODIFY]** [pom.xml](file:///d:/ttcn/ttcn/source_code/backend/pom.xml): Nâng cấp `maven-compiler-plugin` lên `3.12.1`.
+  - **[MODIFY]** [RateLimitFilter.java](file:///d:/ttcn/ttcn/source_code/backend/src/main/java/com/ttcn/backend/filter/RateLimitFilter.java): Thêm chú thích và tối ưu hóa lấy IP khách qua header `X-Forwarded-For`.
+  - **[MODIFY]** [SecurityConfig.java](file:///d:/ttcn/ttcn/source_code/backend/src/main/java/com/ttcn/backend/config/SecurityConfig.java): Bổ sung chú thích giải mã JWT và đặt cơ chế session thành stateless.
+  - **[MODIFY]** [User.java](file:///d:/ttcn/ttcn/source_code/backend/src/main/java/com/ttcn/backend/entity/User.java) & [UserDTO.java](file:///d:/ttcn/ttcn/source_code/backend/src/main/java/com/ttcn/backend/dto/UserDTO.java): Khai báo ánh xạ các trường `isActive` và `status`.
+  - **[MODIFY]** [UserServiceImpl.java](file:///d:/ttcn/ttcn/source_code/backend/src/main/java/com/ttcn/backend/service/impl/UserServiceImpl.java): Đồng bộ các trường `isActive` và `status` khi cập nhật hồ sơ người dùng.
+  - **[MODIFY]** [authenticationSlice.ts](file:///d:/ttcn/ttcn/source_code/frontend/src/features/authentication/authenticationSlice.ts): Logic từ chối đăng nhập và khôi phục phiên đối với tài khoản vô hiệu hóa.
+  - **[MODIFY]** [UserManagement.jsx](file:///d:/ttcn/ttcn/source_code/frontend/src/pages/Admin/UserManagement.jsx): Thêm cột trạng thái, các nút Khóa/Mở khóa an toàn và chống tự khóa tài khoản của Admin.
+  - **[MODIFY]** [ClassDetail.jsx](file:///d:/ttcn/ttcn/source_code/frontend/src/pages/Student/ClassDetail.jsx): Bổ sung cờ `isMounted` để loại bỏ nguy cơ rò rỉ bộ nhớ.
+  - **[MODIFY]** [FlashcardReviewForm.jsx](file:///d:/ttcn/ttcn/source_code/frontend/src/components/Teacher/FlashcardReviewForm.jsx): Khắc phục lỗi binding của form field.
+  - **[MODIFY]** [AiQuestionGenerator.jsx](file:///d:/ttcn/ttcn/source_code/frontend/src/pages/Teacher/AiQuestionGenerator.jsx): Cập nhật payload `draftId` và sửa lỗi điều phối SSE event.
+
+---
