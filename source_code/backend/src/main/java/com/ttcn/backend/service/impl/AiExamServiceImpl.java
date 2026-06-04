@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ttcn.backend.dto.request.SaveExamDraftRequest;
 import com.ttcn.backend.dto.response.AiQuestionDraftResponse;
+import com.ttcn.backend.entity.ClassEntity;
 import com.ttcn.backend.entity.Course;
 import com.ttcn.backend.entity.Exam;
 import com.ttcn.backend.entity.Question;
+import com.ttcn.backend.repository.ClassRepository;
 import com.ttcn.backend.repository.CourseRepository;
 import com.ttcn.backend.repository.ExamRepository;
 import com.ttcn.backend.repository.QuestionRepository;
@@ -42,12 +44,14 @@ public class AiExamServiceImpl implements AiExamService {
     private final ExamRepository examRepository;
     private final QuestionRepository questionRepository;
     private final CourseRepository courseRepository;
+    private final ClassRepository classRepository;
     private final ObjectMapper objectMapper;
 
-    public AiExamServiceImpl(ExamRepository examRepository, QuestionRepository questionRepository, CourseRepository courseRepository) {
+    public AiExamServiceImpl(ExamRepository examRepository, QuestionRepository questionRepository, CourseRepository courseRepository, ClassRepository classRepository) {
         this.examRepository = examRepository;
         this.questionRepository = questionRepository;
         this.courseRepository = courseRepository;
+        this.classRepository = classRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -59,7 +63,7 @@ public class AiExamServiceImpl implements AiExamService {
                 "\n\nHãy tạo ra bộ câu hỏi gồm 5 câu Trắc nghiệm (MCQ) và 2 câu Tự luận (ESSAY)." +
                 "Yêu cầu TRẢ VỀ CHỈ MỘT MẢNG JSON thuần túy, KHÔNG chứa chữ nào khác, tuân thủ đúng cấu trúc sau:\n" +
                 "[\n" +
-                "  {\"content\": \"Nội dung câu hỏi?\", \"type\": \"MCQ\", \"difficulty\": \"EASY\", \"points\": 1, \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correctAnswer\": \"A. ...\"},\n" +
+                "  {\"content\": \"Nội dung câu hỏi?\", \"type\": \"MCQ\", \"difficulty\": \"EASY\", \"points\": 1, \"options\": [{\"id\": \"A\", \"text\": \"...\"}, {\"id\": \"B\", \"text\": \"...\"}, {\"id\": \"C\", \"text\": \"...\"}, {\"id\": \"D\", \"text\": \"...\"}], \"correctAnswer\": \"A\"},\n" +
                 "  {\"content\": \"Nội dung câu tự luận?\", \"type\": \"ESSAY\", \"difficulty\": \"HARD\", \"points\": 2}\n" +
                 "]";
 
@@ -77,9 +81,16 @@ public class AiExamServiceImpl implements AiExamService {
                     .orElseThrow(() -> new IllegalArgumentException("Course not found"));
         }
 
+        ClassEntity classEntity = null;
+        if (request.getClassId() != null) {
+            classEntity = classRepository.findById(request.getClassId())
+                    .orElseThrow(() -> new IllegalArgumentException("Class not found"));
+        }
+
         Exam exam = new Exam();
         exam.setTitle(request.getExamTitle() != null && !request.getExamTitle().isEmpty() ? request.getExamTitle() : "Bài kiểm tra tự động");
         exam.setCourse(course);
+        exam.setClassEntity(classEntity);
         // Default properties
         exam.setDuration(60);
         exam.setStartTime(java.time.LocalDateTime.now());
@@ -129,7 +140,7 @@ public class AiExamServiceImpl implements AiExamService {
     }
 
     private String callGeminiApi(String prompt) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
                 + geminiApiKey;
 
         Map<String, Object> textPart = new HashMap<>();
@@ -162,7 +173,7 @@ public class AiExamServiceImpl implements AiExamService {
                 "\n\nHãy tạo ra bộ câu hỏi gồm 5 câu Trắc nghiệm (MCQ) và 2 câu Tự luận (ESSAY)." +
                 "Yêu cầu TRẢ VỀ CHỈ MỘT MẢNG JSON thuần túy, KHÔNG chứa chữ nào khác, tuân thủ đúng cấu trúc sau:\n" +
                 "[\n" +
-                "  {\"content\": \"Nội dung câu hỏi?\", \"type\": \"MCQ\", \"difficulty\": \"EASY\", \"points\": 1, \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correct_answer\": \"A. ...\"},\n" +
+                "  {\"content\": \"Nội dung câu hỏi?\", \"type\": \"MCQ\", \"difficulty\": \"EASY\", \"points\": 1, \"options\": [{\"id\": \"A\", \"text\": \"...\"}, {\"id\": \"B\", \"text\": \"...\"}, {\"id\": \"C\", \"text\": \"...\"}, {\"id\": \"D\", \"text\": \"...\"}], \"correctAnswer\": \"A\"},\n" +
                 "  {\"content\": \"Nội dung câu tự luận?\", \"type\": \"ESSAY\", \"difficulty\": \"HARD\", \"points\": 2}\n" +
                 "]";
 

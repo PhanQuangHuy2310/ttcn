@@ -1,95 +1,118 @@
-# Hướng dẫn chạy dự án trên Localhost (Không dùng Docker)
+# Hướng dẫn Khởi chạy Dự án DHDedu (Local Environment)
 
-Tài liệu này hướng dẫn bạn khởi chạy toàn bộ dự án trên máy cá nhân (`localhost`) mà không cần đóng gói Docker. Luồng chạy bao gồm: **Redis** -> **Backend (Spring Boot)** -> **Frontend (React + Vite)**.
-
----
-
-### 1. Yêu cầu hệ thống (Prerequisites)
-Đảm bảo máy tính của bạn đã cài đặt sẵn các công cụ sau:
-- **Java Development Kit (JDK) 17** (để chạy Backend).
-- **Apache Maven** (để build/chạy ứng dụng Java).
-- **Node.js (v20+) & npm** (để chạy Frontend).
-- **Redis Server** (vì ứng dụng Spring Boot dùng Redis làm bộ nhớ cache).
+Tài liệu này hướng dẫn chi tiết cách cài đặt và khởi chạy toàn bộ hệ thống (Frontend, Backend, Database, Seeder) trên máy tính cá nhân (`localhost`) mà không dùng Docker.
 
 ---
 
-### 2. Bước 1: Khởi động dịch vụ Redis (Bắt buộc)
-Backend Spring Boot yêu cầu kết nối tới Redis ở cổng `6379`. Bạn có hai cách để khởi động Redis:
+## 📋 1. Yêu cầu hệ thống (Prerequisites)
 
-#### Cách 1: Sử dụng Docker để chạy nhanh Redis (Khuyên dùng)
-Nếu máy bạn có cài Docker, hãy mở terminal lên và chạy lệnh sau để chạy riêng Redis:
-```bash
-docker run -d --name redis-local -p 6379:6379 redis:7-alpine
-```
+Đảm bảo máy tính của bạn đã cài đặt sẵn các môi trường/công cụ sau:
 
-#### Cách 2: Chạy trực tiếp Redis trên máy thật
-Khởi động service Redis cục bộ của bạn bằng lệnh phù hợp với hệ điều hành (ví dụ trên Windows sử dụng dịch vụ WSL hoặc tệp chạy `redis-server.exe`).
+- **Java JDK 17** (LTS) trở lên.
+- **Node.js** (Phiên bản `>= 18.x`, khuyên dùng bản LTS mới nhất).
+- **Apache Maven** (Phiên bản `>= 3.8` để build Backend).
+- **Redis Server** (Chạy cục bộ trên cổng mặc định `6379` để làm Cache).
+- Một tài khoản và project **Supabase** (Đã cấu hình sẵn các file `.env` cho môi trường dev).
 
 ---
 
-### 3. Bước 2: Cấu hình và Khởi động Backend (Spring Boot)
+## 🔑 2. Cấu hình biến môi trường (Environment Variables)
 
-#### 3.1. Kiểm tra File môi trường
-Đảm bảo bạn có file cấu hình môi trường [backend/.env](file:///d:/ttcn/ttcn/source_code/backend/.env) (mặc định đã được thiết lập đầy đủ kết nối tới cơ sở dữ liệu Supabase, Gemini AI và Redis cục bộ `localhost:6379`).
+Dự án sử dụng các file cấu hình `.env` cho từng phân hệ (đã được cấu hình sẵn trong mã nguồn cho môi trường phát triển):
 
-#### 3.2. Khởi chạy Backend qua Command Line
-Mở Terminal/CMD mới, di chuyển đến thư mục backend và chạy lệnh sau:
-```bash
-cd d:\ttcn\ttcn\source_code\backend
-mvn spring-boot:run
-```
+- **Backend (`/source_code/backend/.env`):**
+  - `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`: Chuỗi kết nối trực tiếp đến PostgreSQL của Supabase.
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`: Thông tin kết nối với dịch vụ Supabase.
+  - `SUPABASE_AUTH_ISSUER`, `SUPABASE_AUTH_JWK_SET_URI`: Cấu hình phục vụ xác thực JWT token từ Client gửi lên Backend.
+  - `GEMINI_API_KEY`: API Key của Google Gemini dùng cho tính năng sinh câu hỏi/flashcards tự động.
+  - `REDIS_HOST` & `REDIS_PORT`: Địa chỉ kết nối đến Redis Cache (mặc định: `localhost:6379`).
 
-*Lưu ý: Bạn cũng có thể mở thư mục `source_code/backend` bằng các IDE lớn như IntelliJ IDEA hoặc VS Code và nhấn nút **Run** trực tiếp trên lớp chính `com.ttcn.backend.BackendApplication`.*
+- **Frontend (`/source_code/frontend/.env`):**
+  - `VITE_SUPABASE_URL`: Đường dẫn URL dự án Supabase.
+  - `VITE_SUPABASE_ANON_KEY`: Khóa anon dùng cho xác thực phía client.
+  - `VITE_API_URL`: Địa chỉ API Backend (mặc định: `http://localhost:8085/api`).
 
-Khi màn hình log hiển thị `Started BackendApplication in X seconds`, Backend đã chạy thành công trên cổng **`8081`**.
-
----
-
-### 4. Bước 3: Cấu hình và Khởi động Frontend (React + Vite)
-
-#### 4.1. Điều chỉnh cấu hình gọi API
-Khi chạy localhost độc lập (không đi qua Nginx của Docker), bạn cần cho phép Frontend biết cổng của Backend. Hãy mở file [frontend/.env](file:///d:/ttcn/ttcn/source_code/frontend/.env):
-
-Sửa dòng:
-```env
-VITE_API_URL=/api
-```
-Thành:
-```env
-VITE_API_URL=http://localhost:8081/api
-```
-*(Thao tác này giúp ứng dụng React gọi trực tiếp đến cổng `8081` của Spring Boot thay vì gọi nội bộ).*
-
-#### 4.2. Khởi chạy Frontend
-Mở một Terminal/CMD mới khác, di chuyển đến thư mục frontend và khởi chạy:
-```bash
-cd d:\ttcn\ttcn\source_code\frontend
-
-# Cài đặt các thư viện phụ thuộc (nếu là lần đầu)
-npm install
-
-# Khởi chạy máy chủ phát triển
-npm run dev
-```
-
-Ứng dụng sẽ khởi động thành công và tự động mở trình duyệt tại địa chỉ: **`http://localhost:3000`**.
+- **Seeder (`/source_code/seeder/.env`):**
+  - `SUPABASE_URL`: Đường dẫn URL dự án Supabase.
+  - `SUPABASE_SERVICE_ROLE_KEY`: Khóa Service Role của Supabase (quyền Admin tối cao dùng để bypass RLS và tạo người dùng).
 
 ---
 
-### 5. Khởi tạo dữ liệu mẫu (Seeding Database) - *Tùy chọn*
-Nếu bạn muốn nạp dữ liệu mẫu mới lên cơ sở dữ liệu để chạy thử hệ thống:
-1. Mở Terminal mới, truy cập thư mục seeder:
+## 🛠️ 3. Các bước khởi chạy chi tiết
+
+### Bước 1: Khởi tạo Database (Supabase)
+
+Nếu bạn muốn triển khai trên một Database mới hoàn toàn:
+
+1. Tạo một project mới trên [Supabase](https://supabase.com).
+2. Truy cập vào **SQL Editor** trên giao diện điều khiển của Supabase Dashboard.
+3. Mở file [database.sql](file:///d:/ttcn/ttcn/migrations/database.sql), sao chép toàn bộ nội dung của script và chạy (**Run**) trong SQL Editor để khởi tạo cấu trúc bảng, enums, triggers, và cấu hình các RLS policies.
+4. Cập nhật các thông số kết nối (URL, Keys, Password) mới nhận được vào các file `.env` tương ứng của Backend, Frontend, và Seeder.
+
+### Bước 2: Chạy Redis Server
+
+Khởi chạy dịch vụ **Redis Server** trên máy tính của bạn:
+
+- **Chạy bằng Docker (Khuyên dùng - chạy ngầm):**
+  ```bash
+  docker run -d --name redis-local -p 6379:6379 redis:alpine
+  ```
+- **Hoặc chạy trực tiếp trên máy (Host):**
+  - _Windows:_ Chạy Redis qua Windows Services hoặc mở file `redis-server.exe`.
+  - _Linux/macOS:_ Chạy lệnh `redis-server`.
+- _Địa chỉ mặc định:_ `127.0.0.1:6379` không mật khẩu.
+
+### Bước 3: Gieo dữ liệu mẫu (Seed Database)
+
+Để tạo các tài khoản và cấu trúc lớp học mẫu:
+
+1. Mở Terminal mới, di chuyển vào thư mục `seeder`:
    ```bash
-   cd d:\ttcn\ttcn\source_code\seeder
+   cd source_code/seeder
    ```
-2. Chạy lệnh:
+2. Cài đặt các dependency cần thiết:
    ```bash
-   node seeder.js
+   npm install
    ```
+3. Chạy lệnh gieo dữ liệu mẫu:
+   ```bash
+   npm run seed
+   ```
+   _Quá trình này sẽ khởi tạo tự động 5 tài khoản Giáo viên (`TEACHER`), 30 tài khoản Học sinh (`STUDENT`), các khóa học, lớp học và các lượt làm bài thi mẫu. Mật khẩu đăng nhập mặc định cho tất cả tài khoản mẫu là `123456`._
+
+### Bước 4: Khởi chạy Backend (Spring Boot API)
+
+1. Mở Terminal mới, di chuyển vào thư mục `backend`:
+   ```bash
+   cd source_code/backend
+   ```
+2. Chạy ứng dụng bằng lệnh Maven:
+   ```bash
+   mvn spring-boot:run
+   ```
+   _(Hoặc bạn có thể import thư mục `backend` vào các IDE như IntelliJ IDEA / Eclipse để chạy trực tiếp class `BackendApplication.java`)._
+3. Ứng dụng Backend sẽ khởi động thành công và lắng nghe tại cổng **`8085`** (`http://localhost:8085`).
+
+### Bước 5: Khởi chạy Frontend (React + Vite)
+
+1. Mở Terminal mới, di chuyển vào thư mục `frontend`:
+   ```bash
+   cd source_code/frontend
+   ```
+2. Cài đặt các thư viện cần thiết:
+   ```bash
+   npm install
+   ```
+3. Khởi chạy ứng dụng ở chế độ phát triển:
+   ```bash
+   npm run dev
+   ```
+4. Sau khi khởi chạy thành công, mở trình duyệt và truy cập vào: **`http://localhost:5173`**.
 
 ---
 
-### 6. Khắc phục lỗi thường gặp (Troubleshooting)
+## 🔑 4. Tài khoản thử nghiệm mặc định
 
-- **Lỗi kết nối Redis**: Nếu Backend báo lỗi không tìm thấy Redis hoặc crash ngay khi bắt đầu chạy, hãy kiểm tra xem cổng `6379` đã được mở và dịch vụ Redis đã chạy hay chưa bằng cách kiểm tra trạng thái Docker hoặc chạy thử lệnh ping redis.
-- **Lỗi CORS**: Backend đã cấu hình cho phép các nguồn gửi yêu cầu từ `http://localhost:3000` và `http://localhost:5173`. Do đó nếu chạy frontend ở cổng mặc định `3000`, lỗi CORS sẽ không xảy ra.
+Sau khi chạy thành công script `seeder`, các tài khoản mẫu sẽ được tạo trong hệ thống. Do quá trình tạo tên và email của seeder là ngẫu nhiên, bạn có thể kiểm tra danh sách email đã tạo trong bảng `users` bằng giao diện Supabase Table Editor hoặc đăng nhập bằng cách đăng ký tài khoản mới trực tiếp từ giao diện Frontend.
+
+- Mật khẩu đăng nhập mặc định cho toàn bộ các tài khoản mẫu do seeder sinh ra là: **`123456`**.

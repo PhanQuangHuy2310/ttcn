@@ -10,7 +10,7 @@ import { selectProfile } from '../../features/authentication/authenticationSlice
 import QuestionReviewForm from '../../components/Teacher/QuestionReviewForm';
 import FlashcardReviewForm from '../../components/Teacher/FlashcardReviewForm';
 import { supabase } from '../../lib/supabase';
-import { COURSES_API, TEACHER_AI_API } from '../../constant/apiEndpoints';
+import { CLASSES_API, TEACHER_AI_API } from '../../constant/apiEndpoints';
 
 
 /**
@@ -28,30 +28,42 @@ const AiQuestionGenerator = () => {
     const [draftData, setDraftData] = useState(null); // Dữ liệu nháp do AI trả về
     const [draftId, setDraftId] = useState(null); // ID của bản nháp trên server
     const [isSaving, setIsSaving] = useState(false); // Trạng thái đang lưu vào database
-    const [courses, setCourses] = useState([]); // Danh sách khóa học của giáo viên
-    const [selectedCourseId, setSelectedCourseId] = useState(''); // Khóa học được chọn để gán nội dung
+    const [classes, setClasses] = useState([]); // Danh sách lớp học của giáo viên
+    const [selectedClassId, setSelectedClassId] = useState(''); // Lớp học được chọn để gán nội dung
 
-    // Tự động tải danh sách khóa học khi mở trang
+    // Tự động tải danh sách lớp học khi mở trang
     useEffect(() => {
-        fetchCourses();
+        fetchClasses();
     }, []);
 
-    // Hàm lấy danh sách khóa học từ Backend
-    const fetchCourses = async () => {
+    // Hàm lấy danh sách lớp học trực tiếp từ Supabase
+    const fetchClasses = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const response = await fetch(COURSES_API.LIST, {
-                headers: { 'Authorization': `Bearer ${session?.access_token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                // Phân trang trả về mảng trong trường 'content'
-                const courseList = data.content || data;
-                setCourses(courseList);
-                if (courseList.length > 0) setSelectedCourseId(courseList[0].id);
+            if (!session?.user?.id) return;
+
+            const { data: classList, error } = await supabase
+                .from('classes')
+                .select(`
+                    id,
+                    name,
+                    code,
+                    course:courses!inner (
+                        id,
+                        name,
+                        teacher_id
+                    )
+                `)
+                .eq('courses.teacher_id', session.user.id);
+
+            if (error) throw error;
+
+            setClasses(classList || []);
+            if (classList && classList.length > 0) {
+                setSelectedClassId(classList[0].id);
             }
         } catch (error) {
-            console.error("Lỗi lấy danh sách khóa học:", error);
+            console.error("Lỗi lấy danh sách lớp học:", error);
         }
     };
 
@@ -150,6 +162,11 @@ const AiQuestionGenerator = () => {
         setIsSaving(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
+            
+            // Tìm lớp học liên kết ngầm (hoặc lớp đã chọn trước đó)
+            const selectedClass = classes.find(c => c.id === selectedClassId) || classes[0];
+            const courseId = selectedClass?.course?.id;
+
             const response = await fetch(TEACHER_AI_API.SAVE_EXAM_DRAFT, {
                 method: 'POST',
                 headers: {
@@ -158,7 +175,8 @@ const AiQuestionGenerator = () => {
                 },
                 body: JSON.stringify({
                     ...finalData,
-                    courseId: selectedCourseId
+                    classId: selectedClass?.id,
+                    courseId: courseId
                 })
             });
             if (!response.ok) throw new Error('Lỗi lưu đề thi');
@@ -176,11 +194,8 @@ const AiQuestionGenerator = () => {
         setIsSaving(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const payload = {
-                ...finalData,
-                courseId: selectedCourseId,
-                draftId: draftId
-            };
+            const selectedClass = classes.find(c => c.id === selectedClassId);
+            const courseId = selectedClass?.course?.id;
             const response = await fetch(TEACHER_AI_API.SAVE_FLASHCARD_DRAFT, {
                 method: 'POST',
                 headers: {
@@ -189,7 +204,7 @@ const AiQuestionGenerator = () => {
                 },
                 body: JSON.stringify({
                     ...finalData,
-                    courseId: selectedCourseId,
+                    courseId: courseId,
                     title: finalData.title || file?.name?.replace('.pdf', '') || 'New Flashcard Set'
                 })
             });
@@ -246,7 +261,7 @@ const AiQuestionGenerator = () => {
             {/* Bước 1: Upload File */}
             {!draftData && !isExtracting ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className={mode === 'QUESTION' ? 'lg:col-span-3 space-y-6' : 'lg:col-span-2 space-y-6'}>
                         <div className="bg-white p-10 rounded-3xl shadow-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-colors group">
                             <div className="w-24 h-24 bg-indigo-50 text-indigo-600 flex items-center justify-center rounded-3xl mb-6 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined text-5xl">description</span>
@@ -294,35 +309,37 @@ const AiQuestionGenerator = () => {
                         </div>
                     </div>
 
-                    {/* Sidebar: Cấu hình */}
-                    <div className="space-y-6">
-                        <div className="bg-slate-800 p-6 rounded-3xl text-white shadow-xl">
-                            <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-xl">info</span> Cấu hình bóc tách
-                            </h4>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Chọn lớp học liên kết</label>
-                                    <select
-                                        value={selectedCourseId}
-                                        onChange={(e) => setSelectedCourseId(e.target.value)}
-                                        className="w-full bg-slate-700 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
-                                    >
-                                        {courses.length > 0 ? courses.map(c => (
-                                            <option key={c.id} value={c.id}>{c.name}</option>
-                                        )) : (
-                                            <option value="" disabled>Đang tải khóa học...</option>
-                                        )}
-                                    </select>
-                                </div>
-                                <div className="p-4 bg-slate-700/50 rounded-2xl border border-slate-600">
-                                    <p className="text-sm text-slate-300 font-medium">
-                                        AI sẽ tự động nhận diện kiến thức trọng tâm và tạo ra nội dung phù hợp với trình độ của lớp.
-                                    </p>
+                    {/* Sidebar: Cấu hình - Chỉ hiển thị khi tạo Flashcards */}
+                    {mode === 'FLASHCARD' && (
+                        <div className="space-y-6">
+                            <div className="bg-slate-800 p-6 rounded-3xl text-white shadow-xl">
+                                <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-xl">info</span> Cấu hình bóc tách
+                                </h4>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Chọn lớp học liên kết</label>
+                                        <select
+                                            value={selectedClassId}
+                                            onChange={(e) => setSelectedClassId(e.target.value)}
+                                            className="w-full bg-slate-700 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                                        >
+                                            {classes.length > 0 ? classes.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                                            )) : (
+                                                <option value="" disabled>Đang tải lớp học...</option>
+                                            )}
+                                        </select>
+                                    </div>
+                                    <div className="p-4 bg-slate-700/50 rounded-2xl border border-slate-600">
+                                        <p className="text-sm text-slate-300 font-medium">
+                                            AI sẽ tự động nhận diện kiến thức trọng tâm và tạo ra nội dung phù hợp với trình độ của lớp.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             ) : isExtracting ? (
                 /* Bước 2: Hiển thị tiến trình xử lý (Loading State) */

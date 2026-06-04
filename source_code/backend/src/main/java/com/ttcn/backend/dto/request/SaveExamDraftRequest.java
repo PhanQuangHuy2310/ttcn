@@ -10,5 +10,6 @@ import java.util.UUID;
 public class SaveExamDraftRequest {
     private String examTitle;
     private UUID courseId;
+    private UUID classId;
     private List<AiQuestionDraftResponse> questions;
 }

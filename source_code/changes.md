@@ -13,6 +13,7 @@ Tài liệu này ghi lại tất cả các thay đổi, tính năng đã thực 
   3. ~~Đảm bảo sau khi giáo viên mở thi, bên giao diện học sinh phải hiển thị bài thi và thời gian làm bài chính xác.~~ ✅ Đã sửa.
   4. ~~Sửa lỗi tạo bài học: `Could not find the 'order_index' column of 'lessons'`~~ ✅ Đã sửa — cột đúng là `order`.
   5. ~~Khi giáo viên nhận xét bài tự luận thì học sinh phải xem được nhận xét đó~~ ✅ Đã sửa — thêm RLS policy UPDATE cho giáo viên + hiển thị nhận xét.
+  6. ~~Kiểm tra phân hệ tạo đề thi bằng tài khoản Giáo viên, khắc phục lỗi API Gemini (model `gemini-1.5-flash` đã bị xóa → đổi sang `gemini-2.5-flash`) và đổi cổng Backend từ `8081` sang `8085` để tránh xung đột.~~ ✅ Đã sửa.
 
 ---
 
@@ -46,10 +47,3 @@ Tài liệu này ghi lại tất cả các thay đổi, tính năng đã thực 
   - **[MODIFY]** [Flashcards.jsx](file:///d:/ttcn/ttcn/source_code/frontend/src/pages/Student/Flashcards.jsx): Thêm giao diện tải file PDF và modal tương tác sinh Flashcard từ AI.
 
 ---
-
-### 3. Tài liệu hướng dẫn vận hành dự án (Documentation)
-
-- **Tính năng:**
-  - Viết tài liệu hướng dẫn chi tiết cách khởi chạy và phát triển dự án trên môi trường cục bộ (`localhost`) không thông qua Docker.
-- **Các file thay đổi/tạo mới:**
-  - **[NEW]** [readme_localhost.md](file:///d:/ttcn/ttcn/source_code/readme_localhost.md): Tài liệu hướng dẫn chạy dự án localhost.

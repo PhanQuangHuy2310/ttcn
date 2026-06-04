@@ -27,7 +27,7 @@ export const SUPABASE_TABLES = {
 } as const;
 
 // ── Spring Boot API base (for future integration) ────────────
-export const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8081').replace(/\/api$/, '');
+export const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8085').replace(/\/api$/, '');
 
 // ── Auth (Sử dụng Supabase Auth ở Client, không gọi qua Spring Boot nữa) ──────────
 export const AUTH_API = {

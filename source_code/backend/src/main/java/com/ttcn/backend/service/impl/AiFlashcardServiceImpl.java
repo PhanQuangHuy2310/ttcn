@@ -34,6 +34,9 @@ public class AiFlashcardServiceImpl implements AiFlashcardService {
     @Value("${gemini.api.key}")
     private String geminiApiKey;
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     @Autowired
     private FlashcardSetRepository flashcardSetRepository;
 
@@ -48,6 +51,9 @@ public class AiFlashcardServiceImpl implements AiFlashcardService {
 
     @Autowired
     private EnrollmentRepository enrollmentRepository;
+
+    @Autowired
+    private ClassRepository classRepository;
 
     @Autowired
     private NotificationRepository notificationRepository;
@@ -72,7 +78,7 @@ public class AiFlashcardServiceImpl implements AiFlashcardService {
 
     // Hàm gọi API của Google Gemini để xử lý nội dung
     private String callGeminiApi(String prompt) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
                 + geminiApiKey;
 
         // Cấu trúc payload theo yêu cầu của Google Gemini API
@@ -217,18 +223,17 @@ public class AiFlashcardServiceImpl implements AiFlashcardService {
         for (SaveFlashcardDraftRequest.FlashcardDraft fReq : request.getFlashcards()) {
             Flashcard f = new Flashcard();
             f.setFlashcardSet(set);
-            f.setFrontText(fReq.getFrontText());
+            f.setFrontText(fReq.getFrontText() + (fReq.getHint() != null && !fReq.getHint().isEmpty() ? " (Gợi ý: " + fReq.getHint() + ")" : ""));
             f.setBackText(fReq.getBackText());
-            f.setHint(fReq.getHint());
             f.setOrder(order++);
             flashcardRepository.save(f);
         }
 
         // Tự động gửi thông báo cho tất cả học sinh đã đăng ký khóa học này
-        List<Enrollment> enrollments = enrollmentRepository.findByCourseId(course.getId());
-        for (Enrollment e : enrollments) {
+        List<User> students = classRepository.findStudentsByCourseId(course.getId());
+        for (User student : students) {
             Notification notif = new Notification();
-            notif.setUser(e.getStudent());
+            notif.setUser(student);
             notif.setTitle("Nội dung mới từ lớp " + course.getName());
             notif.setContent("Giáo viên vừa tạo bộ Flashcard mới: " + set.getTitle() + ". Hãy vào ôn tập ngay nhé!");
             notificationRepository.save(notif);
