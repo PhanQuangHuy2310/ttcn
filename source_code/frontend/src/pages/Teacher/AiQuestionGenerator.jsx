@@ -1,7 +1,10 @@
 /**
  * FILE: AiQuestionGenerator.jsx
  * MÔ TẢ: Giao diện chính cho tính năng AI Generator dành cho Giáo viên.
- * CHỨC NĂNG: Cho phép tải PDF lên để AI bóc tách tự động thành câu hỏi đề thi hoặc bộ thẻ Flashcards.
+ * 
+ * MỤC ĐÍCH DÀNH CHO NGƯỜI MỚI HỌC:
+ * - Cho phép tải lên tài liệu PDF học tập để AI tự động bóc tách thành Đề thi trắc nghiệm/tự luận hoặc bộ thẻ học tập Flashcards.
+ * - Xử lý truyền phát sự kiện tiến độ thời gian thực (Server-Sent Events - SSE) từ Backend bằng cách giải mã stream nhị phân (Binary Stream).
  */
 import React, { useState, useRef, useEffect } from 'react';
 import toast from 'react-hot-toast';
@@ -12,36 +15,36 @@ import FlashcardReviewForm from '../../components/Teacher/FlashcardReviewForm';
 import { supabase } from '../../lib/supabase';
 import { CLASSES_API, TEACHER_AI_API } from '../../constant/apiEndpoints';
 
-
-/**
- * Trang tạo nội dung giáo dục bằng AI (Đề thi & Flashcards)
- */
 const AiQuestionGenerator = () => {
     const profile = useSelector(selectProfile);
-    const fileInputRef = useRef(null);
+    const fileInputRef = useRef(null); // Tham chiếu tới thẻ input file ẩn để kích hoạt sự kiện click chọn file qua nút tự chế
 
-    // Trạng thái ứng dụng
-    const [mode, setMode] = useState('QUESTION'); // Chế độ: QUESTION (Đề thi) hoặc FLASHCARD (Thẻ nhớ)
-    const [file, setFile] = useState(null); // File PDF được chọn
-    const [isExtracting, setIsExtracting] = useState(false); // Trạng thái đang bóc tách nội dung
-    const [progress, setProgress] = useState(null); // Tiến độ xử lý của AI (dùng cho SSE)
-    const [draftData, setDraftData] = useState(null); // Dữ liệu nháp do AI trả về
-    const [draftId, setDraftId] = useState(null); // ID của bản nháp trên server
-    const [isSaving, setIsSaving] = useState(false); // Trạng thái đang lưu vào database
-    const [classes, setClasses] = useState([]); // Danh sách lớp học của giáo viên
-    const [selectedClassId, setSelectedClassId] = useState(''); // Lớp học được chọn để gán nội dung
+    // ── Quản lý trạng thái ứng dụng ──────────────────────────────
+    const [mode, setMode] = useState('QUESTION'); // Chế độ: 'QUESTION' (Tạo đề thi) hoặc 'FLASHCARD' (Tạo bộ thẻ Flashcard)
+    const [file, setFile] = useState(null); // Lưu file PDF được người dùng chọn
+    const [isExtracting, setIsExtracting] = useState(false); // Trạng thái đang đợi AI bóc tách nội dung
+    const [progress, setProgress] = useState(null); // Lưu thông tin tiến độ xử lý hiện tại (Bước, Nội dung thông điệp, Phần trăm %)
+    const [draftData, setDraftData] = useState(null); // Lưu kết quả danh sách câu hỏi hoặc flashcards thô do AI trả về
+    const [draftId, setDraftId] = useState(null); // Lưu ID bản nháp duy nhất do server cung cấp (chỉ dùng cho Flashcards)
+    const [isSaving, setIsSaving] = useState(false); // Trạng thái đang gửi yêu cầu lưu bản nháp vào Database
+    const [classes, setClasses] = useState([]); // Danh sách lớp học thuộc quyền quản lý của giáo viên
+    const [selectedClassId, setSelectedClassId] = useState(''); // ID lớp học được giáo viên lựa chọn trên màn hình
 
-    // Tự động tải danh sách lớp học khi mở trang
+    // Tự động tải danh sách lớp học của giáo viên khi mới mở trang
     useEffect(() => {
         fetchClasses();
     }, []);
 
-    // Hàm lấy danh sách lớp học trực tiếp từ Supabase
+    /**
+     * Tải danh sách lớp học của giáo viên từ Supabase.
+     */
     const fetchClasses = async () => {
         try {
+            // Lấy token phiên làm việc hiện tại của Supabase để kiểm tra xác thực người dùng
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.user?.id) return;
 
+            // Thực hiện câu truy vấn join bảng classes với bảng courses (lọc theo teacher_id là ID người đăng nhập)
             const { data: classList, error } = await supabase
                 .from('classes')
                 .select(`
@@ -59,6 +62,7 @@ const AiQuestionGenerator = () => {
             if (error) throw error;
 
             setClasses(classList || []);
+            // Mặc định chọn lớp đầu tiên trong danh sách nếu có
             if (classList && classList.length > 0) {
                 setSelectedClassId(classList[0].id);
             }
@@ -67,10 +71,13 @@ const AiQuestionGenerator = () => {
         }
     };
 
-    // Xử lý khi chọn file
+    /**
+     * Sự kiện chọn file PDF từ máy tính.
+     */
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
+            // Đảm bảo chỉ chấp nhận tệp định dạng PDF
             if (selectedFile.type !== 'application/pdf') {
                 toast.error('Vui lòng chọn file PDF hợp lệ!');
                 return;
@@ -79,73 +86,85 @@ const AiQuestionGenerator = () => {
         }
     };
 
-    // Hàm gọi AI bóc tách nội dung
+    /**
+     * Bắt đầu gửi file PDF lên server để AI xử lý.
+     * GIẢI THÍCH CHO NGƯỜI MỚI HỌC VỀ LUỒNG SSE (STREAMING):
+     * - Khi tạo Flashcard, ta sử dụng API Stream. API này không trả về kết quả ngay lập tức
+     *   mà trả về một dòng chảy dữ liệu (ReadableStream).
+     * - Ta sử dụng vòng lặp `while(true)` kết hợp `reader.read()` để đọc dần từng khối byte nhị phân được gửi đến.
+     * - Sử dụng TextDecoder để biên dịch mảng byte nhị phân thành chuỗi văn bản UTF-8.
+     * - Chuỗi văn bản được phân tích theo từng dòng (`\n`). Mỗi dòng bắt đầu bằng `data:` sẽ chứa thông tin tiến độ JSON.
+     */
     const handleExtract = async () => {
         if (!file) return;
         setIsExtracting(true);
         setDraftData(null);
-        setProgress({ step: 0, message: 'Đang bắt đầu...', percent: 0 });
+        setProgress({ step: 0, message: 'Đang khởi tạo kết nối...', percent: 0 });
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', file); // Tạo định dạng form tải lên chứa file PDF
 
             if (mode === 'QUESTION') {
-                // Chế độ tạo đề thi (Gọi API truyền thống)
+                // Chế độ tạo đề thi: Gọi API Request-Response thông thường
                 const response = await fetch(TEACHER_AI_API.EXTRACT_QUESTIONS, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${session?.access_token}` },
                     body: formData
                 });
-                if (!response.ok) throw new Error('Lỗi server');
+                if (!response.ok) throw new Error('Không thể kết nối đến máy chủ AI');
                 const data = await response.json();
                 setDraftData(data);
                 toast.success('AI đã bóc tách xong câu hỏi!');
                 setIsExtracting(false);
             } else {
-                // Chế độ tạo Flashcard (Sử dụng SSE để theo dõi tiến độ)
+                // Chế độ tạo Flashcard: Gọi API Luồng Tiến độ SSE (Stream)
                 const response = await fetch(TEACHER_AI_API.EXTRACT_FLASHCARDS_STREAM, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${session?.access_token}` },
                     body: formData
                 });
 
-                if (!response.ok) throw new Error('Không thể kết nối server');
+                if (!response.ok) throw new Error('Không thể khởi tạo luồng dữ liệu tiến trình');
 
-                // Xử lý luồng dữ liệu (ReadableStream) từ server
+                // Lấy đối tượng đọc luồng dữ liệu (ReadableStream)
                 const reader = response.body.getReader();
-                const decoder = new TextDecoder();
+                const decoder = new TextDecoder(); // Giải mã mảng byte sang chuỗi UTF-8
                 let buffer = '';
 
                 while (true) {
                     const { value, done } = await reader.read();
-                    if (done) break;
+                    if (done) break; // Thoát vòng lặp khi luồng dữ liệu kết thúc
 
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
+                    buffer = lines.pop() || ''; // Phần dư cuối cùng chưa trọn vẹn được giữ lại buffer
 
                     for (const line of lines) {
+                        // SSE quy định mỗi dòng dữ liệu gửi về bắt đầu bằng chữ "data:"
                         if (line.startsWith('data:')) {
                             const dataStr = line.replace('data:', '').trim();
                             if (!dataStr) continue;
                             try {
                                 const data = JSON.parse(dataStr);
-                                // Kiểm tra nếu là sự kiện hoàn tất
+                                
+                                // TỐI ƯU HÓA/SỬA LỖI: Backend gửi mảng dữ liệu flashcards qua trường `flashcards`.
+                                // Kiểm tra nếu có trường draftId chứng tỏ đã bóc tách xong thành công
                                 if (data.draftId) {
                                     setDraftId(data.draftId);
-                                    if (data.drafts) {
-                                        setDraftData(data.drafts);
+                                    const cards = data.flashcards || data.drafts;
+                                    if (cards) {
+                                        setDraftData(cards);
                                         setIsExtracting(false);
                                         toast.success('AI bóc tách Flashcards thành công!');
                                     }
                                 } else {
-                                    // Cập nhật tiến độ phần trăm
+                                    // Ngược lại, nếu chưa xong, đây là thông tin phần trăm tiến độ gửi về
                                     setProgress(data);
                                 }
                             } catch (e) {
-                                console.error("Lỗi parse dữ liệu SSE:", e);
+                                console.error("Lỗi giải mã dòng dữ liệu SSE:", e);
                             }
                         }
                     }
@@ -157,13 +176,15 @@ const AiQuestionGenerator = () => {
         }
     };
 
-    // Hàm lưu bộ đề thi
+    /**
+     * Gửi yêu cầu lưu danh sách câu hỏi đề thi chính thức về Backend.
+     */
     const handleSaveQuestions = async (finalData) => {
         setIsSaving(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
             
-            // Tìm lớp học liên kết ngầm (hoặc lớp đã chọn trước đó)
+            // Tìm lớp học và khóa học liên kết
             const selectedClass = classes.find(c => c.id === selectedClassId) || classes[0];
             const courseId = selectedClass?.course?.id;
 
@@ -179,7 +200,7 @@ const AiQuestionGenerator = () => {
                     courseId: courseId
                 })
             });
-            if (!response.ok) throw new Error('Lỗi lưu đề thi');
+            if (!response.ok) throw new Error('Không thể lưu đề thi vào CSDL');
             toast.success('Lưu đề thi thành công!');
             resetState();
         } catch (error) {
@@ -189,13 +210,16 @@ const AiQuestionGenerator = () => {
         }
     };
 
-    // Hàm lưu bộ Flashcards
+    /**
+     * Gửi yêu cầu lưu bộ thẻ Flashcard chính thức về Backend.
+     */
     const handleSaveFlashcards = async (finalData) => {
         setIsSaving(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const selectedClass = classes.find(c => c.id === selectedClassId);
             const courseId = selectedClass?.course?.id;
+            
             const response = await fetch(TEACHER_AI_API.SAVE_FLASHCARD_DRAFT, {
                 method: 'POST',
                 headers: {
@@ -204,12 +228,13 @@ const AiQuestionGenerator = () => {
                 },
                 body: JSON.stringify({
                     ...finalData,
+                    draftId: draftId, // SỬA LỖI: Bắt buộc gửi draftId để Backend xác minh bản nháp trong cache
                     courseId: courseId,
-                    title: finalData.title || file?.name?.replace('.pdf', '') || 'New Flashcard Set'
+                    title: finalData.title || file?.name?.replace('.pdf', '') || 'Bộ Flashcard mới'
                 })
             });
-            if (!response.ok) throw new Error('Lỗi lưu Flashcards');
-            toast.success('Lưu Flashcards và gửi thông báo thành công!');
+            if (!response.ok) throw new Error('Không thể lưu bộ Flashcard');
+            toast.success('Lưu Flashcards và gửi thông báo tới học sinh thành công!');
             resetState();
         } catch (error) {
             toast.error(error.message);
@@ -218,7 +243,7 @@ const AiQuestionGenerator = () => {
         }
     };
 
-    // Làm mới trạng thái
+    // Đưa các trạng thái về ban đầu để tải tài liệu mới
     const resetState = () => {
         setFile(null);
         setDraftData(null);
@@ -230,7 +255,7 @@ const AiQuestionGenerator = () => {
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            {/* Header: Tiêu đề và chọn chế độ */}
+            {/* Tiêu đề trang và nút lựa chọn chế độ */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-4xl font-black text-slate-800 flex items-center gap-3">
@@ -258,7 +283,7 @@ const AiQuestionGenerator = () => {
                 )}
             </div>
 
-            {/* Bước 1: Upload File */}
+            {/* Bước 1: Giao diện kéo thả/tải file PDF */}
             {!draftData && !isExtracting ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className={mode === 'QUESTION' ? 'lg:col-span-3 space-y-6' : 'lg:col-span-2 space-y-6'}>
@@ -283,7 +308,7 @@ const AiQuestionGenerator = () => {
                                     <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-2xl border border-indigo-100 mb-6">
                                         <div className="flex items-center gap-3 truncate">
                                             <div className="bg-white p-2 rounded-lg shadow-sm">
-                                                    <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
+                                                <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
                                             </div>
                                             <span className="font-bold text-slate-700 truncate">{file.name}</span>
                                         </div>
@@ -309,7 +334,7 @@ const AiQuestionGenerator = () => {
                         </div>
                     </div>
 
-                    {/* Sidebar: Cấu hình - Chỉ hiển thị khi tạo Flashcards */}
+                    {/* Cấu hình lớp học khi gán bộ Flashcards */}
                     {mode === 'FLASHCARD' && (
                         <div className="space-y-6">
                             <div className="bg-slate-800 p-6 rounded-3xl text-white shadow-xl">
@@ -342,7 +367,7 @@ const AiQuestionGenerator = () => {
                     )}
                 </div>
             ) : isExtracting ? (
-                /* Bước 2: Hiển thị tiến trình xử lý (Loading State) */
+                /* Bước 2: Trạng thái chờ xử lý (Spinning progress bar) */
                 <div className="max-w-2xl mx-auto py-20 text-center space-y-8">
                     <div className="relative inline-block">
                         <div className="w-32 h-32 border-8 border-slate-100 border-t-indigo-600 rounded-full animate-spin mx-auto" />
@@ -362,7 +387,7 @@ const AiQuestionGenerator = () => {
                     </div>
                 </div>
             ) : (
-                /* Bước 3: Kiểm duyệt dữ liệu (Review Mode) */
+                /* Bước 3: Xem lại và duyệt trước khi lưu bản chính thức (Review Mode) */
                 <div className="space-y-6">
                     <button
                         onClick={resetState}
@@ -379,7 +404,7 @@ const AiQuestionGenerator = () => {
                 </div>
             )}
 
-            {/* Overlay: Trạng thái đang lưu */}
+            {/* Màn hình chờ khóa giao diện khi đang lưu dữ liệu */}
             {isSaving && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
                     <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-6 max-w-sm text-center">

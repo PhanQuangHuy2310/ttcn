@@ -18,4 +18,6 @@ public class UserDTO {
     private String studentId;
     private String avatarUrl;
     private String phoneNumber;
+    private Boolean isActive;
+    private String status;
 }

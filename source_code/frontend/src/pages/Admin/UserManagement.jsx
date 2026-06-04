@@ -129,6 +129,26 @@ const UserManagement = () => {
     setConfirmId(null);
   };
 
+  // Hàm bật/tắt (khoá/mở khoá) trạng thái tài khoản người dùng
+  const handleToggleActive = async (user) => {
+    // Đảo ngược trạng thái is_active
+    const newActive = user.is_active === false ? true : false;
+    const newStatus = newActive ? 'ACTIVE' : 'INACTIVE';
+    
+    // Gọi usersService để cập nhật lên database
+    const { error: err } = await usersService.updateProfile(user.id, { 
+      is_active: newActive, 
+      status: newStatus 
+    });
+    
+    if (err) {
+      setError('Không thể cập nhật trạng thái tài khoản: ' + err);
+    } else {
+      // Cập nhật local state để UI phản chiếu thay đổi ngay
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: newActive, status: newStatus } : u));
+    }
+  };
+
   const userToDelete = users.find(u => u.id === confirmId);
 
   return (
@@ -167,16 +187,17 @@ const UserManagement = () => {
               <Th>Email</Th>
               <Th>Vai trò</Th>
               <Th>Mã số</Th>
+              <Th>Trạng thái</Th>
               <Th>Ngày tạo</Th>
               <Th className="text-right">Thao tác</Th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => <SkRow key={i} cols={6} />)
+              Array.from({ length: 5 }).map((_, i) => <SkRow key={i} cols={7} />)
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState icon="person_search" title="Không tìm thấy người dùng" subtitle="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" />
                 </td>
               </tr>
@@ -196,10 +217,28 @@ const UserManagement = () => {
                 <Td className="text-slate-500 text-sm">{u.email}</Td>
                 <Td><RoleBadge role={u.role} /></Td>
                 <Td className="font-mono text-xs text-slate-500">{u.student_id ?? u.teacher_code ?? '—'}</Td>
+                <Td>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                    u.is_active !== false 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {u.is_active !== false ? 'Đang hoạt động' : 'Vô hiệu hóa'}
+                  </span>
+                </Td>
                 <Td className="text-slate-400 text-xs">{fmtDate(u.created_at)}</Td>
                 <Td>
                   <div className="flex items-center justify-end gap-1">
                     <IconBtn icon="edit" label="Chỉnh sửa" variant="ghost" size="sm" />
+                    {u.id !== myProfile?.id && (
+                      <IconBtn
+                        icon={u.is_active !== false ? "lock" : "lock_open"}
+                        label={u.is_active !== false ? "Vô hiệu hóa" : "Kích hoạt"}
+                        variant={u.is_active !== false ? "danger" : "primary"}
+                        size="sm"
+                        onClick={() => handleToggleActive(u)}
+                      />
+                    )}
                     <IconBtn
                       icon="delete"
                       label="Xóa"

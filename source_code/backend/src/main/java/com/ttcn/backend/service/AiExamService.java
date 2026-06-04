@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface AiExamService {
-    List<AiQuestionDraftResponse> extractQuestionsFromPdf(MultipartFile file) throws Exception;
+    List<AiQuestionDraftResponse> extractQuestionsFromPdf(MultipartFile file, String docType) throws Exception;
     void saveExamDraft(SaveExamDraftRequest request) throws Exception;
     List<Exam> searchExams(String keyword);
     List<Question> searchQuestions(String keyword);

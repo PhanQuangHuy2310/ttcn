@@ -1,4 +1,7 @@
 // src/pages/Student/ClassDetail.jsx
+// Trang chi tiết lớp học dành cho Học sinh.
+// Chia làm 3 tab chức năng: Bài kiểm tra, Tài liệu học tập, và Danh sách thành viên cùng lớp.
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -10,12 +13,16 @@ import {
   fmtDateTime, fmtDuration
 } from '../../components/ui';
 
+/**
+ * Định dạng kích thước file từ byte sang đơn vị dễ đọc (MB, KB).
+ */
 const sizeLabel = bytes => {
   if (!bytes) return '—';
   const mb = bytes / (1024 * 1024);
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
 };
 
+// Bản đồ ánh xạ định dạng file sang biểu tượng và màu sắc hiển thị
 const ICON_MAP = {
   PDF: { icon: 'picture_as_pdf', bg: 'bg-red-50 border-red-100', color: 'text-red-500' },
   VIDEO: { icon: 'play_circle', bg: 'bg-blue-50 border-blue-100', color: 'text-blue-500' },
@@ -24,24 +31,39 @@ const ICON_MAP = {
   OTHER: { icon: 'attach_file', bg: 'bg-slate-100 border-slate-200', color: 'text-slate-500' },
 };
 
+/**
+ * Component hiển thị trang chi tiết lớp học của Học sinh.
+ */
 const StudentClassDetail = () => {
+  // Lấy mã ID lớp học từ URL động (Ví dụ: /student/classes/123 -> classId = "123")
   const { classId } = useParams();
   const navigate = useNavigate();
+  // Lấy thông tin tài khoản đăng nhập hiện tại từ Redux Store
   const profile = useSelector(selectProfile);
 
-  const [tab, setTab] = useState('exams'); // 'exams' | 'materials' | 'students'
-  const [classInfo, setClassInfo] = useState(null);
-  const [exams, setExams] = useState([]);
-  const [materials, setMaterials] = useState([]);
-  const [students, setStudents] = useState([]);
+  // Quản lý Tab hiện tại được chọn (exams: Bài thi, materials: Tài liệu, students: Danh sách lớp)
+  const [tab, setTab] = useState('exams'); 
+  const [classInfo, setClassInfo] = useState(null); // Lưu thông tin lớp và khóa học
+  const [exams, setExams] = useState([]);           // Lưu danh sách bài thi
+  const [materials, setMaterials] = useState([]);   // Lưu danh sách tài liệu
+  const [students, setStudents] = useState([]);     // Lưu danh sách bạn cùng lớp
   
   const [loadingClass, setLoadingClass] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState(null);
 
-  // Load Class & Course details
+  /**
+   * Effect 1: Tải thông tin Lớp học & Khóa học & Giáo viên phụ trách lớp.
+   * 
+   * TỐI ƯU HÓA:
+   * - Sử dụng biến cờ `isMounted` để kiểm tra component còn hiển thị hay không trước khi cập nhật State. 
+   *   Nếu người dùng bấm Back quay lại trước khi API kịp phản hồi, React sẽ không bị cảnh báo lỗi bộ nhớ (Memory Leak).
+   * - Sử dụng cú pháp Join Table của Supabase `.select("..., courses(..., users(...))")` để tải toàn bộ thông tin
+   *   lớp học, khóa học và thông tin giáo viên phụ trách chỉ trong duy nhất 1 request mạng, tối ưu tài nguyên.
+   */
   useEffect(() => {
     if (!classId) return;
+    let isMounted = true;
 
     const loadClassDetails = async () => {
       setLoadingClass(true);
@@ -69,30 +91,41 @@ const StudentClassDetail = () => {
             )
           `)
           .eq('id', classId)
-          .single();
+          .single(); // Lấy duy nhất 1 đối tượng khớp ID
 
         if (err) throw err;
-        setClassInfo(data);
+        if (isMounted) setClassInfo(data);
       } catch (err) {
-        console.error('Error loading class details:', err);
-        setError('Không thể tải thông tin lớp học. Bạn có thể không có quyền truy cập.');
+        console.error('Lỗi khi tải chi tiết lớp học:', err);
+        if (isMounted) setError('Không thể tải thông tin lớp học. Bạn có thể không có quyền truy cập.');
       } finally {
-        setLoadingClass(false);
+        if (isMounted) setLoadingClass(false);
       }
     };
 
     loadClassDetails();
+    
+    // Hàm dọn dẹp (Cleanup Function) chạy khi Component bị hủy (unmount)
+    return () => {
+      isMounted = false;
+    };
   }, [classId]);
 
-  // Load Tab Content Data
+  /**
+   * Effect 2: Tải dữ liệu tương ứng theo Tab hiện tại đang được mở.
+   * GIẢI THÍCH CHO NGƯỜI MỚI HỌC:
+   * - Thay vì tải sạch dữ liệu của cả 3 tab cùng lúc (làm chậm tốc độ load ban đầu), 
+   *   hệ thống chỉ tải dữ liệu khi tab tương ứng được người dùng click chọn.
+   */
   useEffect(() => {
     if (!classInfo || !profile?.id) return;
+    let isMounted = true;
 
     const loadTabData = async () => {
-      setLoadingData(true);
+      if (isMounted) setLoadingData(true);
       try {
         if (tab === 'exams') {
-          // Fetch exams
+          // Bước A: Tải toàn bộ bài kiểm tra thuộc lớp này
           const { data: examsData, error: examsErr } = await supabase
             .from('exams')
             .select('*')
@@ -100,17 +133,18 @@ const StudentClassDetail = () => {
             .order('created_at', { ascending: false });
           if (examsErr) throw examsErr;
 
-          // Fetch student submissions
+          // Bước B: Tải lịch sử làm bài (submissions) của Học sinh hiện tại
           const { data: subsData, error: subsErr } = await supabase
             .from('submissions')
             .select('*')
             .eq('student_id', profile.id);
           if (subsErr) throw subsErr;
 
-          // Chỉ hiển thị các bài thi đã được giảng viên mở (ACTIVE) hoặc đóng (ENDED), bỏ qua các bài thi nháp/seeded sẵn ở dạng UPCOMING
+          // Bộ lọc: Chỉ hiển thị các bài thi ở trạng thái ACTIVE (Đang thi) hoặc ENDED (Đã đóng). 
+          // Ẩn các bài thi nháp/chuẩn bị mở (UPCOMING).
           const visibleExams = (examsData ?? []).filter(exam => exam.status === 'ACTIVE' || exam.status === 'ENDED');
 
-          // Enrich exams with submissions
+          // Ghép thông tin bài nộp (submission) tương ứng vào từng đối tượng bài thi để giao diện biết học sinh đã làm bài hay chưa
           const enriched = visibleExams.map(exam => {
             const sub = (subsData ?? []).find(s => s.exam_id === exam.id);
             return {
@@ -118,9 +152,10 @@ const StudentClassDetail = () => {
               submission: sub
             };
           });
-          setExams(enriched);
+          if (isMounted) setExams(enriched);
+
         } else if (tab === 'materials') {
-          // Fetch lessons in the course
+          // Bước A: Lấy danh sách các bài học (lessons) của khóa học này
           const { data: lessonsData, error: lessonsErr } = await supabase
             .from('lessons')
             .select('id, title')
@@ -129,7 +164,7 @@ const StudentClassDetail = () => {
 
           const lessonIds = lessonsData?.map(l => l.id) || [];
           if (lessonIds.length > 0) {
-            // Fetch materials for these lessons with purpose THEORY
+            // Bước B: Lấy các tài liệu học tập (THEORY) nằm trong các bài học này
             const { data: matsData, error: matsErr } = await supabase
               .from('materials')
               .select('*')
@@ -145,12 +180,13 @@ const StudentClassDetail = () => {
                 lesson_title: lesson?.title || 'Tài liệu chung'
               };
             });
-            setMaterials(enrichedMats);
+            if (isMounted) setMaterials(enrichedMats);
           } else {
-            setMaterials([]);
+            if (isMounted) setMaterials([]);
           }
+
         } else if (tab === 'students') {
-          // Fetch students list
+          // Bước A: Tải danh sách toàn bộ học sinh đăng ký trong lớp học này
           const { data: studentsData, error: studentsErr } = await supabase
             .from('student_classes')
             .select(`
@@ -166,18 +202,23 @@ const StudentClassDetail = () => {
             .eq('class_id', classId)
             .order('enrolled_at', { ascending: true });
           if (studentsErr) throw studentsErr;
-          setStudents(studentsData ?? []);
+          if (isMounted) setStudents(studentsData ?? []);
         }
       } catch (err) {
-        console.error(`Error loading data for tab ${tab}:`, err);
+        console.error(`Lỗi tải dữ liệu cho tab ${tab}:`, err);
       } finally {
-        setLoadingData(false);
+        if (isMounted) setLoadingData(false);
       }
     };
 
     loadTabData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [classInfo, tab, profile?.id, classId]);
 
+  // Trạng thái hiển thị Skeleton Loading khi đang tải dữ liệu lớp
   if (loadingClass) {
     return (
       <AppLayout role="STUDENT">
@@ -209,6 +250,7 @@ const StudentClassDetail = () => {
     );
   }
 
+  // Hiển thị lỗi nếu không tải được lớp
   if (error) {
     return (
       <AppLayout role="STUDENT">
@@ -231,23 +273,29 @@ const StudentClassDetail = () => {
 
   return (
     <AppLayout role="STUDENT">
+      {/* Tiêu đề trang chi tiết lớp học */}
       <PageHeader
         title={classInfo.name}
         subtitle={`${course?.name ?? ''} · Môn học: ${course?.subject ?? '—'} · Mã lớp: ${classInfo.code}`}
         back={() => navigate('/student/classes')}
       />
 
-      {/* Teacher Box (Top-Left Info) */}
+      {/* Hiển thị thông tin giảng viên phụ trách lớp học ở góc trên bên trái */}
       <div className="flex items-center gap-3.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm max-w-md mb-8">
         <Avatar name={teacherName} size="md" colorClass="from-primary to-indigo-600" />
         <div className="min-w-0">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Giảng viên giảng dạy</p>
           <p className="text-sm font-bold text-slate-800 truncate">{teacherName}</p>
-          {teacherEmail && <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5"><span className="material-symbols-outlined text-xs">mail</span>{teacherEmail}</p>}
+          {teacherEmail && (
+            <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+              <span className="material-symbols-outlined text-xs">mail</span>
+              {teacherEmail}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Thanh chuyển đổi các Tab */}
       <div className="flex border-b border-slate-100 mb-6">
         {tabs.map(t => (
           <button
@@ -265,15 +313,16 @@ const StudentClassDetail = () => {
         ))}
       </div>
 
-      {/* Tab Contents */}
+      {/* Phần hiển thị nội dung của từng Tab */}
       <div>
         {loadingData ? (
+          // Hiển thị skeleton loading trong lúc tải dữ liệu của tab
           <div className="space-y-3">
             {[1, 2].map(i => <Sk key={i} className="h-20 w-full rounded-2xl" />)}
           </div>
         ) : (
           <>
-            {/* 1. EXAMS TAB */}
+            {/* ─── TAB 1: BÀI KIỂM TRA ───────────────────────────────────────── */}
             {tab === 'exams' && (
               <Card>
                 {exams.length === 0 ? (
@@ -287,7 +336,6 @@ const StudentClassDetail = () => {
                     {exams.map(exam => {
                       const sub = exam.submission;
                       const hasSub = !!sub;
-                      const isClosed = exam.status === 'CLOSED';
                       const isActive = exam.status === 'ACTIVE';
 
                       return (
@@ -300,14 +348,15 @@ const StudentClassDetail = () => {
                               <h4 className="font-bold text-slate-800 text-sm line-clamp-1">{exam.title}</h4>
                               <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap">
                                 <span>{fmtDuration(exam.duration)}</span>
-                              {exam.start_time && (
+                                {exam.start_time && (
                                   <>
                                     <span>·</span>
                                     <span>Mở lúc: {fmtDateTime(exam.start_time)}</span>
                                   </>
                                 )}
                               </div>
-                              {/* Hiển thị nhận xét của giáo viên nếu có */}
+                              
+                              {/* HIỂN THỊ NHẬN XÉT: Hiển thị nhận xét tự luận của giáo viên nếu học sinh đã làm xong bài và được chấm */}
                               {hasSub && sub.teacher_comment && (
                                 <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs">
                                   <p className="font-bold text-blue-800 flex items-center gap-1 mb-0.5">
@@ -320,9 +369,9 @@ const StudentClassDetail = () => {
                             </div>
                           </div>
 
+                          {/* Trạng thái bài kiểm tra và các nút hành động tương ứng */}
                           <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end">
                             <div className="flex flex-col items-end gap-1">
-                              {/* Show submission score if graded/submitted */}
                               {hasSub ? (
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-slate-400">Kết quả:</span>
@@ -334,7 +383,7 @@ const StudentClassDetail = () => {
                               )}
                             </div>
 
-                            {/* Actions button */}
+                            {/* Điều hướng logic nút bấm dựa trên trạng thái làm bài */}
                             {hasSub ? (
                               (sub.status === 'SUBMITTED' || sub.status === 'GRADED' || sub.status === 'PENDING_ESSAY_GRADING') ? (
                                 <Link
@@ -377,7 +426,7 @@ const StudentClassDetail = () => {
               </Card>
             )}
 
-            {/* 2. MATERIALS TAB */}
+            {/* ─── TAB 2: TÀI LIỆU HỌC TẬP ───────────────────────────────────── */}
             {tab === 'materials' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {materials.length === 0 ? (
@@ -430,7 +479,7 @@ const StudentClassDetail = () => {
               </div>
             )}
 
-            {/* 3. STUDENTS TAB */}
+            {/* ─── TAB 3: DANH SÁCH LỚP HỌC ──────────────────────────────────── */}
             {tab === 'students' && (
               <Card>
                 {students.length === 0 ? (

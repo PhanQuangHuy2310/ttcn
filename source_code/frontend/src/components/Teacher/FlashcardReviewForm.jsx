@@ -1,37 +1,43 @@
 import React from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 
-
 /**
  * Component Form cho phép giáo viên kiểm duyệt và chỉnh sửa Flashcards do AI tạo ra.
- * @param {Array} initialData - Danh sách flashcards nháp từ AI
- * @param {Function} onSave - Hàm xử lý khi bấm Lưu
- * @param {Function} onCancel - Hàm xử lý khi bấm Hủy
+ * 
+ * MỤC ĐÍCH DÀNH CHO NGƯỜI MỚI HỌC:
+ * - Dùng React Hook Form (useForm, useFieldArray) để quản lý form động (cho phép thêm/xóa thẻ Flashcard trực tiếp trên UI).
+ * - TỐI ƯU HÓA/SỬA LỖI: Đồng bộ hóa thuộc tính của form là `frontText` và `backText` để khớp hoàn toàn với thực thể Flashcard
+ *   và DTO đầu vào của Backend, tránh lỗi binding dữ liệu làm lưu bài thất bại.
+ * 
+ * @param {Array} initialData - Danh sách flashcards nháp được AI trích xuất.
+ * @param {Function} onSave - Hàm gọi callback lưu dữ liệu về phía Component cha.
+ * @param {Function} onCancel - Hàm gọi quay lại màn hình tải file.
  */
 const FlashcardReviewForm = ({ initialData, onSave, onCancel }) => {
-    // Sử dụng React Hook Form để quản lý trạng thái form và validate
+    // 1. Khởi tạo form với các giá trị mặc định ban đầu
     const { register, control, handleSubmit, formState: { errors } } = useForm({
         defaultValues: {
-            title: '', // Tiêu đề bộ thẻ
-            description: '', // Mô tả bộ thẻ
-            flashcards: initialData || [] // Danh sách các thẻ
+            title: '',            // Tiêu đề của bộ Flashcard (Ví dụ: Flashcard Bài 1)
+            description: '',      // Mô tả ngắn
+            flashcards: initialData || [] // Danh sách mảng chứa các thẻ do AI sinh ra
         }
     });
 
-    // Quản lý mảng các trường (fields) động (thêm/xóa thẻ)
+    // 2. useFieldArray: Giúp quản lý danh sách mảng (Array) động trong Form.
+    // Cho phép Giáo viên nhấn "Thêm thẻ mới" hoặc click biểu tượng "Thùng rác" để xóa bớt thẻ.
     const { fields, append, remove } = useFieldArray({
         control,
-        name: "flashcards"
+        name: "flashcards" // Khớp với trường 'flashcards' khai báo ở defaultValues
     });
 
-    // Xử lý khi submit form
+    // 3. Hàm xử lý submit khi form đã hợp lệ (không lỗi validate)
     const onSubmit = (data) => {
         onSave(data);
     };
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-            {/* Header của Form Review */}
+            {/* Header điều hướng của Form */}
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Kiểm duyệt Flashcards</h2>
                 <div className="space-x-3">
@@ -52,7 +58,7 @@ const FlashcardReviewForm = ({ initialData, onSave, onCancel }) => {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Thông tin cơ bản của bộ Flashcard */}
+                {/* Thông tin metadata của bộ thẻ */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề bộ Flashcard</label>
@@ -73,24 +79,25 @@ const FlashcardReviewForm = ({ initialData, onSave, onCancel }) => {
                     </div>
                 </div>
 
-                {/* Danh sách các thẻ Flashcard */}
+                {/* Phần quản lý danh sách thẻ chi tiết */}
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-700 flex justify-between items-center">
                         Danh sách thẻ ({fields.length})
                         <button
                             type="button"
-                            onClick={() => append({ front: '', back: '', hint: '' })}
+                            // Thêm một thẻ trống mới vào cuối danh sách với định dạng trường chuẩn
+                            onClick={() => append({ frontText: '', backText: '', hint: '' })}
                             className="text-sm bg-green-50 text-green-600 px-3 py-1 rounded-full hover:bg-green-100 flex items-center gap-1 transition-colors"
                         >
                             <span className="material-symbols-outlined text-sm">add</span> Thêm thẻ mới
                         </button>
                     </h3>
 
-                    {/* Vùng hiển thị danh sách thẻ có scroll */}
+                    {/* Vùng cuộn (scroll) danh sách thẻ để không làm vỡ layout giao diện */}
                     <div className="max-h-[500px] overflow-y-auto pr-2 space-y-4">
                         {fields.map((field, index) => (
                             <div key={field.id} className="p-4 border border-gray-200 rounded-xl bg-gray-50 relative group">
-                                {/* Nút xóa thẻ */}
+                                {/* Nút click xóa thẻ hiện tại */}
                                 <button
                                     type="button"
                                     onClick={() => remove(index)}
@@ -100,26 +107,28 @@ const FlashcardReviewForm = ({ initialData, onSave, onCancel }) => {
                                 </button>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Nội dung mặt trước */}
+                                    {/* Nhập nội dung mặt trước */}
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mặt trước (Câu hỏi/Thuật ngữ)</label>
                                         <textarea
-                                            {...register(`flashcards.${index}.front`, { required: true })}
+                                            // SỬA LỖI: đăng ký trường flashcards[index].frontText chuẩn với backend
+                                            {...register(`flashcards.${index}.frontText`, { required: true })}
                                             rows="2"
                                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                                         />
                                     </div>
-                                    {/* Nội dung mặt sau */}
+                                    {/* Nhập nội dung mặt sau */}
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mặt sau (Đáp án/Định nghĩa)</label>
                                         <textarea
-                                            {...register(`flashcards.${index}.back`, { required: true })}
+                                            // SỬA LỖI: đăng ký trường flashcards[index].backText chuẩn với backend
+                                            {...register(`flashcards.${index}.backText`, { required: true })}
                                             rows="2"
                                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                                         />
                                     </div>
                                 </div>
-                                {/* Gợi ý bổ sung */}
+                                {/* Trường Gợi ý */}
                                 <div className="mt-3">
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gợi ý (tùy chọn)</label>
                                     <input
