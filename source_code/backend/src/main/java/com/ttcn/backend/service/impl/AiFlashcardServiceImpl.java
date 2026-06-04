@@ -237,4 +237,28 @@ public class AiFlashcardServiceImpl implements AiFlashcardService {
         // Xóa bản nháp khỏi cache sau khi đã lưu thành công
         draftStorage.clearDraft(request.getDraftId());
     }
+
+    @Override
+    public List<Map<String, String>> extractFlashcards(MultipartFile file) throws Exception {
+        String pdfText;
+        try (InputStream in = file.getInputStream();
+             PDDocument document = PDDocument.load(in)) {
+            PDFTextStripper pdfStripper = new PDFTextStripper();
+            pdfText = pdfStripper.getText(document);
+            if (pdfText != null && pdfText.length() > 20000) {
+                pdfText = pdfText.substring(0, 20000);
+            }
+        }
+
+        String prompt = "Dựa vào nội dung tài liệu sau:\n\n" + pdfText +
+                "\n\nHãy tạo ra bộ thẻ Flashcard từ các khái niệm và nội dung chính (từ 5 đến 15 thẻ)." +
+                "Yêu cầu TRẢ VỀ CHỈ MỘT MẢNG JSON thuần túy, KHÔNG chứa markdown, đúng định dạng:\n" +
+                "[\n" +
+                "  {\"frontText\": \"Khái niệm A\", \"backText\": \"Định nghĩa của A\", \"hint\": \"Gợi ý nhỏ\"}\n" +
+                "]";
+
+        String jsonResponse = callGeminiApi(prompt);
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.readValue(jsonResponse, new TypeReference<List<Map<String, String>>>() {});
+    }
 }

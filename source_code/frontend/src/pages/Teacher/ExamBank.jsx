@@ -13,7 +13,7 @@ import { Btn, IconBtn, Card, EmptyState, ErrorBanner, StatusBadge, SkRow, PageHe
 import { examsService, examsAdminService, coursesService, examMatricesService } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabase';
 
-const STATUS_OPTS = [{ value: 'ALL', label: 'Tất cả' }, { value: 'DRAFT', label: 'Nháp' }, { value: 'ACTIVE', label: 'Đã mở' }, { value: 'ENDED', label: 'Đã đóng' }];
+const STATUS_OPTS = [{ value: 'ALL', label: 'Tất cả' }, { value: 'DRAFT', label: 'Nháp' }, { value: 'ACTIVE', label: 'Đang thi' }, { value: 'ENDED', label: 'Đã đóng' }];
 const NEXT_STATUS = { DRAFT: 'ACTIVE', ACTIVE: 'ENDED', ENDED: null };
 const NEXT_LABEL = { DRAFT: 'Mở thi', ACTIVE: 'Đóng thi' };
 
@@ -63,7 +63,8 @@ const CreateExamModal = ({ open, onClose, onCreated, profile }) => {
       const finalTitle = examType === 'MOCK' ? `[Thi thử] ${form.title.trim()}` : form.title.trim();
       const payload = {
         title: finalTitle, course_id: form.course_id, class_id: form.class_id,
-        duration: parseInt(form.duration) || 60, status: form.status, allow_review: true, shuffle_questions: true
+        duration: parseInt(form.duration) || 60, status: form.status, allow_review: true, shuffle_questions: true,
+        start_time: form.status === 'ACTIVE' ? new Date().toISOString() : null
       };
 
       const { data: examData, error: examErr } = await examsAdminService.create(payload);

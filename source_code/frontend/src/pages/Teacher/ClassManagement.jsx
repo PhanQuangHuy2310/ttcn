@@ -117,7 +117,7 @@ const LessonBuilder = ({ courseId }) => {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [form,    setForm]    = useState({ title: '', description: '', video_url: '', order_index: 1 });
+  const [form,    setForm]    = useState({ title: '', description: '', video_url: '', order: 1 });
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
@@ -137,12 +137,12 @@ const LessonBuilder = ({ courseId }) => {
     const { data, error: err } = await lessonsService.create({
       ...form,
       course_id:   courseId,
-      order_index: parseInt(form.order_index) || lessons.length + 1,
+      order: parseInt(form.order) || lessons.length + 1,
     });
     setSaving(false);
     if (!err && data) {
-      setLessons(prev => [...prev, data].sort((a, b) => a.order_index - b.order_index));
-      setForm({ title: '', description: '', video_url: '', order_index: lessons.length + 2 });
+      setLessons(prev => [...prev, data].sort((a, b) => a.order - b.order));
+      setForm({ title: '', description: '', video_url: '', order: lessons.length + 2 });
       setAddOpen(false);
     }
   };
@@ -172,7 +172,7 @@ const LessonBuilder = ({ courseId }) => {
           {lessons.map((lesson, idx) => (
             <div key={lesson.id} className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100 group hover:border-slate-200 transition-colors">
               <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs font-black text-slate-500 shrink-0">
-                {lesson.order_index ?? idx + 1}
+                {lesson.order ?? idx + 1}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-slate-800 truncate">{lesson.title}</p>
@@ -196,7 +196,7 @@ const LessonBuilder = ({ courseId }) => {
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm bài học" maxWidth="max-w-md">
         <form onSubmit={handleCreate} className="space-y-4">
           <Input label="Tên bài học *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Bài 1: Giới thiệu" required />
-          <Input label="Số thứ tự" type="number" min={1} value={form.order_index} onChange={e => setForm(f => ({ ...f, order_index: e.target.value }))} />
+          <Input label="Số thứ tự" type="number" min={1} value={form.order} onChange={e => setForm(f => ({ ...f, order: e.target.value }))} />
           <Textarea label="Mô tả" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Nội dung tóm tắt..." />
           <Input label="URL Video (YouTube/Drive)" value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} placeholder="https://..." />
           <div className="flex gap-3 justify-end">

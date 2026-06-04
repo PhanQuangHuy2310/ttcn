@@ -36,6 +36,7 @@ const AiQuestionGenerator = lazy(() => import('./pages/Teacher/AiQuestionGenerat
 // Student
 const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
 const StudentClasses = lazy(() => import('./pages/Student/Classes'));
+const StudentClassDetail = lazy(() => import('./pages/Student/ClassDetail'));
 const ExamList = lazy(() => import('./pages/Student/ExamList'));
 const ExamTaking = lazy(() => import('./pages/Student/ExamTaking'));
 const ExamReview = lazy(() => import('./pages/Student/ExamReview'));
@@ -117,6 +118,7 @@ const App = () => (
         <Route path="/student" element={<RequireAuth allowedRoles={['STUDENT']}><Navigate to="/student/dashboard" replace /></RequireAuth>} />
         <Route path="/student/dashboard" element={<RequireAuth allowedRoles={['STUDENT']}><StudentDashboard /></RequireAuth>} />
         <Route path="/student/classes" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClasses /></RequireAuth>} />
+        <Route path="/student/classes/:classId" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClassDetail /></RequireAuth>} />
         <Route path="/student/exams" element={<RequireAuth allowedRoles={['STUDENT']}><ExamList /></RequireAuth>} />
 
         {/* SỬA LỖI 404 Ở ĐÂY: Đổi đường dẫn cho khớp với component gọi đến */}

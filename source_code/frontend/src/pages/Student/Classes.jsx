@@ -3,6 +3,7 @@
 // Keeps all existing class card display logic
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectProfile } from '../../features/authentication/authenticationSlice';
 import AppLayout from '../../components/AppLayout';
@@ -95,7 +96,7 @@ const ClassCard = ({ enrollment }) => {
   const grad = gradientMap[cls.name.charCodeAt(0) % gradientMap.length];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 overflow-hidden group">
+    <Link to={`/student/classes/${cls.id}`} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden group block">
       {/* Color bar */}
       <div className={`h-1.5 bg-gradient-to-r ${grad}`} />
 
@@ -131,7 +132,7 @@ const ClassCard = ({ enrollment }) => {
           <span>HK {course.semester ?? '—'}</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
 

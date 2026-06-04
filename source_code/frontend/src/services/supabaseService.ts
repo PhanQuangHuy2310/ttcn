@@ -312,6 +312,7 @@ export const examsService = {
       supabase
         .from(SUPABASE_TABLES.EXAMS)
         .select('*')
+        .neq('status', 'UPCOMING')
         .order('created_at', { ascending: false })
     ),
   getUpcoming: (limit = 5) =>
@@ -326,8 +327,8 @@ export const examsService = {
         class_id,
         classes(name)
       `)
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
+        .eq('status', 'ACTIVE')
+        .order('created_at', { ascending: false })
         .limit(limit)
     ),
   getByTeacher: (teacherId: string) =>
@@ -348,6 +349,7 @@ export const examsService = {
         )
       `)
         .eq('courses.teacher_id', teacherId)
+        .neq('status', 'UPCOMING')
         .order('created_at', { ascending: false })
     ),
 
@@ -363,19 +365,13 @@ export const examsService = {
   countAll: async () => {
     const { data, error } = await supabase
       .from(SUPABASE_TABLES.EXAMS)
-      .select('id,start_time,duration');
+      .select('id,start_time,duration,status')
+      .neq('status', 'UPCOMING');
 
     if (error) return { data: null, error: error.message };
 
     const exams = data || [];
-    const now = new Date();
-
-    const active = exams.filter((e: any) => {
-      if (!e.start_time) return false;
-      const start = new Date(e.start_time);
-      const end = new Date(start.getTime() + (e.duration || 60) * 60000);
-      return now >= start && now <= end;
-    }).length;
+    const active = exams.filter((e: any) => e.status === 'ACTIVE').length;
 
     return {
       data: {
@@ -863,15 +859,20 @@ export const examsAdminService = {
         .single()
     ),
 
-  updateStatus: (id: string, status: string) =>
-    run(
+  updateStatus: (id: string, status: string) => {
+    const payload: any = { status };
+    if (status === 'ACTIVE') {
+      payload.start_time = new Date().toISOString();
+    }
+    return run(
       supabase
         .from(SUPABASE_TABLES.EXAMS)
-        .update({ status })
+        .update(payload)
         .eq('id', id)
         .select()
         .single()
-    ),
+    );
+  },
 
   delete: (id: string) =>
     run(
@@ -1066,7 +1067,7 @@ export const lessonsService = {
         .from(SUPABASE_TABLES.LESSONS)
         .select('*')
         .eq('course_id', courseId)
-        .order('order_index', { ascending: true })
+        .order('order', { ascending: true })
     ),
 
   create: (payload: any) =>
