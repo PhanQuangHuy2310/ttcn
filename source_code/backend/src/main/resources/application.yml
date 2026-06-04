@@ -52,10 +52,10 @@ spring:
   
   # Cấu hình Gửi Mail (SMTP)
   mail:
-    host: ${SMTP_HOST}
-    port: ${SMTP_PORT}
-    username: ${SMTP_USERNAME}
-    password: ${SMTP_PASSWORD}
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -69,7 +69,7 @@ spring:
 # Cấu hình cho Google Gemini AI
 gemini:
   api:
-    key: ${GEMINI_API_KEY}
+    key: ${GEMINI_API_KEY:}
 
 # Cấu hình Log (Ghi nhật ký hệ thống)
 logging:
