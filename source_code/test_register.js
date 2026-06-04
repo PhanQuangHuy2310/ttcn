@@ -5,7 +5,7 @@ const data = JSON.stringify({
   role: "STUDENT"
 });
 
-fetch('http://localhost:8081/api/auth/register', {
+fetch('http://localhost:8085/api/auth/register', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'

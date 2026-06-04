@@ -79,6 +79,8 @@ public class UserServiceImpl implements UserService {
                 .studentId(user.getStudentId())
                 .avatarUrl(user.getAvatarUrl())
                 .phoneNumber(user.getPhoneNumber())
+                .isActive(user.getIsActive())
+                .status(user.getStatus())
                 .build();
     }
 
@@ -95,6 +97,8 @@ public class UserServiceImpl implements UserService {
                 .studentId(dto.getStudentId())
                 .avatarUrl(dto.getAvatarUrl())
                 .phoneNumber(dto.getPhoneNumber())
+                .isActive(dto.getIsActive())
+                .status(dto.getStatus())
                 .build();
     }
 }

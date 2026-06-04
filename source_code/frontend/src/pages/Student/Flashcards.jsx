@@ -123,7 +123,7 @@ const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
       formData.append('file', file);
 
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8081/api'}/student/ai/extract-flashcards`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8085/api'}/student/ai/extract-flashcards`, {
         method: 'POST',
         body: formData,
         headers: {

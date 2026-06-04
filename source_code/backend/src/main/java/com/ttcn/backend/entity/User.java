@@ -55,6 +55,17 @@ public class User {
     @Column(name = "updated_at", insertable = false, updatable = false)
     private OffsetDateTime updatedAt;
 
+    // TỐI ƯU HÓA/SỬ A LỖI: Bổ sung các cột trạng thái hoạt động tài khoản
+    // is_active quy định xem người dùng có được cấp quyền truy cập hệ thống nữa hay không.
+    @Builder.Default
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    // status lưu dạng chuỗi ('ACTIVE' hoặc 'INACTIVE') đồng bộ trạng thái.
+    @Builder.Default
+    @Column(name = "status")
+    private String status = "ACTIVE";
+
     // One instructor can teach many courses
     @OneToMany(mappedBy = "teacher", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @ToString.Exclude

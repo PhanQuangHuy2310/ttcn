@@ -30,6 +30,30 @@ const getOptionsArray = (opts) => {
   return ['', '', '', ''];
 };
 
+const getOptionsStrings = (opts) => {
+  const arr = getOptionsArray(opts);
+  return arr.map(o => (typeof o === 'object' && o !== null) ? (o.text || '') : String(o));
+};
+
+const isOptionCorrect = (opt, correctAns, idx) => {
+  if (!correctAns) return false;
+  if (typeof opt === 'object' && opt !== null) {
+    const optId = opt.id || '';
+    const optText = opt.text || '';
+    return (
+      correctAns === optId ||
+      correctAns === optText ||
+      correctAns === String.fromCharCode(65 + idx) ||
+      correctAns === String(idx)
+    );
+  }
+  return (
+    correctAns === opt ||
+    correctAns === String.fromCharCode(65 + idx) ||
+    correctAns === String(idx)
+  );
+};
+
 // ── Modal Thêm/Sửa câu hỏi ───────────
 const QuestionModal = ({ open, onClose, onSaved, exams, defaultExamId, editQuestion }) => {
   const isEdit = !!editQuestion;
@@ -48,7 +72,7 @@ const QuestionModal = ({ open, onClose, onSaved, exams, defaultExamId, editQuest
   useEffect(() => {
     if (!open) return;
     if (editQuestion) {
-      let safeOptions = getOptionsArray(editQuestion.options);
+      let safeOptions = getOptionsStrings(editQuestion.options);
       while (safeOptions.length < 4) safeOptions.push('');
 
       setForm({
@@ -322,9 +346,11 @@ const QuestionBank = () => {
                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           {safeOptions.map((opt, idx) => {
                             if (!opt) return null;
+                            const isCorrect = isOptionCorrect(opt, q.correct_answer, idx);
+                            const optText = (typeof opt === 'object' && opt !== null) ? (opt.text || '') : String(opt);
                             return (
-                              <div key={idx} className={`truncate px-2 py-1 rounded-md ${opt === q.correct_answer ? 'bg-green-50 text-green-700 font-bold border border-green-100' : 'text-slate-500'}`}>
-                                {String.fromCharCode(65 + idx)}. {opt}
+                              <div key={idx} className={`truncate px-2 py-1 rounded-md ${isCorrect ? 'bg-green-50 text-green-700 font-bold border border-green-100' : 'text-slate-500'}`}>
+                                {String.fromCharCode(65 + idx)}. {optText}
                               </div>
                             );
                           })}

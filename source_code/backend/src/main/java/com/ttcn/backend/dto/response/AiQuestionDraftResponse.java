@@ -16,6 +16,6 @@ public class AiQuestionDraftResponse {
     private String type; // MCQ or ESSAY
     private String difficulty; // EASY, MEDIUM, HARD
     private Double points;
-    private List<String> options; // Nullable for ESSAY
+    private List<Object> options; // Nullable for ESSAY
     private String correctAnswer; // Nullable or sample answer for ESSAY
 }

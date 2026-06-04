@@ -45,12 +45,14 @@ public class TeacherAiController {
      * Trả về danh sách câu hỏi nháp để giáo viên xem lại.
      */
     @PostMapping("/ai/extract-questions")
-    public ResponseEntity<?> extractQuestions(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> extractQuestions(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "docType", required = false, defaultValue = "THEORY") String docType) {
         try {
             if (file.isEmpty() || !file.getContentType().equals("application/pdf")) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng tải lên file PDF hợp lệ"));
             }
-            List<AiQuestionDraftResponse> draftQuestions = aiExamService.extractQuestionsFromPdf(file);
+            List<AiQuestionDraftResponse> draftQuestions = aiExamService.extractQuestionsFromPdf(file, docType);
             return ResponseEntity.ok(draftQuestions);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi xử lý AI: " + e.getMessage()));
