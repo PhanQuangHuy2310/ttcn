@@ -205,35 +205,66 @@ public class AiExamServiceImpl implements AiExamService {
     }
 
     /**
-     * Gọi API Google Gemini.
+     * Gọi API Google Gemini với cơ chế tự động thử lại (Retry) và chuyển đổi mô hình dự phòng (Fallback).
      */
     private String callGeminiApi(String prompt) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
-                + geminiApiKey;
+        String[] models = {"gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"};
+        Exception lastException = null;
 
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", prompt);
+        for (String model : models) {
+            int retries = 3;
+            long delay = 1000; // Khởi đầu chờ 1 giây
 
-        Map<String, Object> contentPart = new HashMap<>();
-        contentPart.put("parts", Collections.singletonList(textPart));
+            for (int attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + geminiApiKey;
 
-        Map<String, Object> requestBodyMap = new HashMap<>();
-        requestBodyMap.put("contents", Collections.singletonList(contentPart));
+                    Map<String, Object> textPart = new HashMap<>();
+                    textPart.put("text", prompt);
 
-        String requestBody = objectMapper.writeValueAsString(requestBodyMap);
+                    Map<String, Object> contentPart = new HashMap<>();
+                    contentPart.put("parts", Collections.singletonList(textPart));
 
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+                    Map<String, Object> requestBodyMap = new HashMap<>();
+                    requestBodyMap.put("contents", Collections.singletonList(contentPart));
 
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-        String response = restTemplate.postForObject(url, entity, String.class);
+                    String requestBody = objectMapper.writeValueAsString(requestBodyMap);
 
-        JsonNode root = objectMapper.readTree(response);
-        String aiText = root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+                    RestTemplate restTemplate = new RestTemplate();
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // TỐI ƯU HÓA: Dọn dẹp markdown code block từ AI trả về để đảm bảo chỉ parse JSON thô
-        return cleanJsonResponse(aiText);
+                    HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+                    String response = restTemplate.postForObject(url, entity, String.class);
+
+                    JsonNode root = objectMapper.readTree(response);
+                    String aiText = root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+
+                    return cleanJsonResponse(aiText);
+                } catch (org.springframework.web.client.HttpStatusCodeException e) {
+                    lastException = e;
+                    int statusCode = e.getStatusCode().value();
+                    // Thử lại khi gặp lỗi tạm thời: 503 (Service Unavailable), 504 (Gateway Timeout), 429 (Too Many Requests), 500 (Internal Server Error)
+                    if (statusCode == 503 || statusCode == 504 || statusCode == 429 || statusCode == 500) {
+                        if (attempt < retries) {
+                            Thread.sleep(delay);
+                            delay *= 2; // Tăng gấp đôi thời gian chờ
+                            continue;
+                        }
+                    }
+                    break; // Gặp lỗi không phục hồi được hoặc hết lượt thử lại -> Chuyển mô hình khác
+                } catch (Exception e) {
+                    lastException = e;
+                    if (attempt < retries) {
+                        Thread.sleep(delay);
+                        delay *= 2;
+                        continue;
+                    }
+                    break;
+                }
+            }
+        }
+        throw new RuntimeException("Tất cả các mô hình AI của Gemini đều không khả dụng. Lỗi cuối cùng: " + (lastException != null ? lastException.getMessage() : "Unknown"), lastException);
     }
 
     /**

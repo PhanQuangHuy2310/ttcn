@@ -114,39 +114,68 @@ public class AiFlashcardServiceImpl implements AiFlashcardService {
      * - Sử dụng RestTemplate của Spring để thực hiện gửi request POST kiểu HTTP JSON lên API Google.
      * - Cần định nghĩa đúng định dạng dữ liệu (Payload) mà Google Gemini quy định.
      */
+    /**
+     * Hàm gọi API của Google Gemini để xử lý nội dung với cơ chế tự động thử lại (Retry) và chuyển đổi mô hình dự phòng (Fallback).
+     */
     private String callGeminiApi(String prompt) throws Exception {
-        // Địa chỉ gọi mô hình gemini-2.5-flash
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
-                + geminiApiKey;
-
-        // Tạo cấu trúc Map tương đương cấu trúc JSON gửi lên Google
-        // Định dạng đích: {"contents": [{"parts": [{"text": "prompt_content"}]}]}
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", prompt);
-
-        Map<String, Object> contentPart = new HashMap<>();
-        contentPart.put("parts", Collections.singletonList(textPart));
-
-        Map<String, Object> requestBodyMap = new HashMap<>();
-        requestBodyMap.put("contents", Collections.singletonList(contentPart));
-
-        // Chuyển đổi đối tượng Map của Java thành chuỗi JSON thô (Raw String JSON)
+        String[] models = {"gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"};
+        Exception lastException = null;
         ObjectMapper mapper = new ObjectMapper();
-        String requestBody = mapper.writeValueAsString(requestBodyMap);
 
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        for (String model : models) {
+            int retries = 3;
+            long delay = 1000; // Khởi đầu chờ 1 giây
 
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-        String response = restTemplate.postForObject(url, entity, String.class);
+            for (int attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + geminiApiKey;
 
-        // Trích xuất phần nội dung văn bản (text) từ kết quả phản hồi JSON của Google
-        JsonNode root = mapper.readTree(response);
-        String aiText = root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+                    Map<String, Object> textPart = new HashMap<>();
+                    textPart.put("text", prompt);
 
-        // TỐI ƯU HÓA: Dọn dẹp dữ liệu JSON từ AI một cách an toàn và mạnh mẽ hơn (Tránh lỗi parse JSON do AI chèn text rác)
-        return cleanJsonResponse(aiText);
+                    Map<String, Object> contentPart = new HashMap<>();
+                    contentPart.put("parts", Collections.singletonList(textPart));
+
+                    Map<String, Object> requestBodyMap = new HashMap<>();
+                    requestBodyMap.put("contents", Collections.singletonList(contentPart));
+
+                    String requestBody = mapper.writeValueAsString(requestBodyMap);
+
+                    RestTemplate restTemplate = new RestTemplate();
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+
+                    HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+                    String response = restTemplate.postForObject(url, entity, String.class);
+
+                    JsonNode root = mapper.readTree(response);
+                    String aiText = root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+
+                    return cleanJsonResponse(aiText);
+                } catch (org.springframework.web.client.HttpStatusCodeException e) {
+                    lastException = e;
+                    int statusCode = e.getStatusCode().value();
+                    // Thử lại khi gặp lỗi tạm thời: 503 (Service Unavailable), 504 (Gateway Timeout), 429 (Too Many Requests), 500 (Internal Server Error)
+                    if (statusCode == 503 || statusCode == 504 || statusCode == 429 || statusCode == 500) {
+                        if (attempt < retries) {
+                            Thread.sleep(delay);
+                            delay *= 2; // Tăng gấp đôi thời gian chờ
+                            continue;
+                        }
+                    }
+                    break; // Gặp lỗi không phục hồi được hoặc hết lượt thử lại -> Chuyển mô hình khác
+                } catch (Exception e) {
+                    lastException = e;
+                    if (attempt < retries) {
+                        Thread.sleep(delay);
+                        delay *= 2;
+                        continue;
+                    }
+                    break;
+                }
+            }
+        }
+        throw new RuntimeException("Tất cả các mô hình AI của Gemini đều không khả dụng. Lỗi cuối cùng: " + (lastException != null ? lastException.getMessage() : "Unknown"), lastException);
     }
 
     /**
