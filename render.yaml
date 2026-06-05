@@ -1,0 +1,45 @@
+services:
+  # 1. Dịch vụ Backend (Spring Boot Web Service)
+  - type: web
+    name: ttcn-backend
+    env: docker
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Nhập thủ công khi deploy để bảo mật
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: SUPABASE_AUTH_ISSUER
+        sync: false
+      - key: SUPABASE_AUTH_JWK_SET_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+  # 2. Giao diện Frontend (React Static Site - FREE)
+  - type: web
+    name: ttcn-frontend
+    env: static
+    rootDir: source_code/frontend
+    buildCommand: npm run build
+    publishDir: dist
+    plan: free
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: max-age=31536000
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://ttcn-backend.onrender.com/api # Liên kết động tới Backend
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
