@@ -63,8 +63,8 @@ public class SecurityConfig {
             
             // 3. Cấu hình phân quyền truy cập cho các nhóm API
             .authorizeHttpRequests(auth -> auth
-                // Cho phép bất kỳ ai (không cần đăng nhập) cũng có thể gọi các API công khai bắt đầu bằng /api/public/
-                .requestMatchers("/api/public/**").permitAll()
+                // Cho phép truy cập công khai vào root '/' và các API public bắt đầu bằng /api/public/
+                .requestMatchers("/", "/api/public/**").permitAll()
                 // Chỉ những tài khoản có vai trò 'TEACHER' mới được truy cập các API bắt đầu bằng /api/teacher/
                 .requestMatchers("/api/teacher/**").hasAuthority("TEACHER")
                 // Tất cả các yêu cầu còn lại đều bắt buộc phải đăng nhập thành công mới được truy cập
