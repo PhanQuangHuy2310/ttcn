@@ -30,9 +30,7 @@ const getMaterialType = file => {
   const t = file.type;
   if (t.includes('pdf')) return 'PDF';
   if (t.includes('video')) return 'VIDEO';
-  if (t.includes('audio')) return 'AUDIO';
-  if (t.includes('image')) return 'IMAGE';
-  return 'OTHER';
+  return 'DOCUMENT';
 };
 
 const UploadArea = ({ onUploaded, profile }) => {
@@ -96,11 +94,11 @@ const UploadArea = ({ onUploaded, profile }) => {
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const path = `materials/${fileName}`;
 
-      const { error: storageErr } = await supabase.storage.from('materials').upload(path, file, { cacheControl: '3600', upsert: false });
+      const { error: storageErr } = await supabase.storage.from('ttcn').upload(path, file, { cacheControl: '3600', upsert: false });
       if (storageErr) throw new Error(`Upload thất bại: ${storageErr.message}`);
       setProgress(70);
 
-      const { data: urlData } = supabase.storage.from('materials').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from('ttcn').getPublicUrl(path);
       setProgress(85);
 
       const { data, error: dbErr } = await supabase.from('materials').insert({

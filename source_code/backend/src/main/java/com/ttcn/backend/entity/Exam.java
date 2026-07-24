@@ -38,6 +38,9 @@ public class Exam {
 
     private Integer duration; // in minutes
 
+    @Column(name = "end_time")
+    private LocalDateTime endTime;
+
     private String password;
 
     @Column(name = "shuffle_questions")

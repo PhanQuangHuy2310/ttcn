@@ -27,20 +27,29 @@ const ExamHistory = () => {
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
+  // ── EFFECT: Tải lịch sử làm bài ──────────────────────────────────
   useEffect(() => {
     if (!profile?.id) return;
     const load = async () => {
       setLoading(true);
       const { data, error: err } = await submissionsService.getByStudent(profile.id);
-      if (err) setError('Không thể tải lịch sử bài thi.');
-      else setSubmissions(data ?? []);
+      if (err) {
+        setError('Không thể tải lịch sử bài thi.');
+      } else {
+        // YÊU CẦU 5: Luôn sắp xếp bài nộp mới nhất lên đầu danh sách để sinh viên dễ theo dõi
+        const sortedData = (data ?? []).sort((a, b) => new Date(b.submitted_at || b.created_at) - new Date(a.submitted_at || a.created_at));
+        setSubmissions(sortedData);
+      }
       setLoading(false);
     };
     load();
   }, [profile?.id]);
 
+  // ── LOGIC LỌC DỮ LIỆU (Filter & Search) ─────────────────────────
   const filtered = submissions.filter(s => {
+    // 1. Lọc theo trạng thái (Tất cả, Chưa làm, Đang làm, Đã nộp...)
     const matchFilter = filter === 'ALL' || s.status === filter;
+    // 2. Tìm kiếm theo tên đề thi
     const matchSearch = !search || s.exams?.title?.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
@@ -136,23 +145,36 @@ const ExamHistory = () => {
                   <div className="col-span-1"><ScoreBadge score={sub.score} /></div>
                   <div className="col-span-1"><StatusBadge status={sub.status} /></div>
                   <div className="col-span-1 flex justify-end">
-
-                    {/* Đã sửa URL và cho phép cả bài GRADED được xem lại */}
+                    {/* ── LOGIC NÚT ĐIỀU HƯỚNG BÀI THI ──────────────────────── */}
+                    {/* 1. Nếu bài đã nộp hoặc đã chấm -> Kiểm tra xem giáo viên có cho phép xem lại không */}
                     {sub.status === 'SUBMITTED' || sub.status === 'GRADED' || sub.status === 'PENDING_ESSAY_GRADING' ? (
-                      <Link to={`/student/review?id=${sub.exam_id}`}
-                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        title="Xem lại bài làm"
-                      >
-                        <span className="material-symbols-outlined text-lg">visibility</span>
-                      </Link>
+                      (sub.exams?.allow_review || sub.status === 'GRADED') ? (
+                        <Link to={`/student/review?id=${sub.exam_id}`}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          title="Xem lại bài làm"
+                        >
+                          <span className="material-symbols-outlined text-lg">visibility</span>
+                        </Link>
+                      ) : (
+                        <button disabled className="p-1.5 text-slate-300 cursor-not-allowed" title="Giáo viên không cho phép xem lại đề này">
+                          <span className="material-symbols-outlined text-lg">visibility_off</span>
+                        </button>
+                      )
                     ) : sub.status === 'IN_PROGRESS' ? (
-                      <Link to={`/student/exam?id=${sub.exam_id}`}
-                        className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition"
-                      >
-                        Tiếp tục
-                      </Link>
+                      // 2. Nếu đang làm dở -> Kiểm tra xem đề thi còn hạn không?
+                      sub.exams?.status === 'ACTIVE' ? (
+                        <Link to={`/student/exam?id=${sub.exam_id}`}
+                          className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition"
+                        >
+                          Tiếp tục
+                        </Link>
+                      ) : (
+                        // 3. Nếu đang làm dở nhưng giáo viên đã Đóng đề thi -> Khóa nút
+                        <button disabled className="px-3 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed border border-slate-200">
+                          Đã đóng
+                        </button>
+                      )
                     ) : null}
-
                   </div>
                 </div>
               ))}

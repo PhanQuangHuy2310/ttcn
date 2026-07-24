@@ -14,6 +14,9 @@ import {
   ReferenceLine, Cell, PieChart, Pie, Legend,
 } from 'recharts';
 
+/**
+ * Component hiển thị Tooltip (nhãn chú thích) khi di chuột qua các điểm trên biểu đồ
+ */
 const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -28,6 +31,9 @@ const ChartTooltip = ({ active, payload, label }) => {
   );
 };
 
+/**
+ * Biểu đồ dạng đường (AreaChart) hiển thị xu hướng điểm số theo thời gian
+ */
 const ScoreTrendChart = ({ data }) => (
   <ResponsiveContainer width="100%" height={220}>
     <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
@@ -56,6 +62,9 @@ const ScoreTrendChart = ({ data }) => (
   </ResponsiveContainer>
 );
 
+/**
+ * Biểu đồ dạng cột (BarChart) đếm số lượng bài thi lọt vào các phổ điểm (Giỏi, Khá, TB, Yếu)
+ */
 const ScoreDistChart = ({ data }) => (
   <ResponsiveContainer width="100%" height={180}>
     <BarChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
@@ -91,6 +100,8 @@ const Statistics = () => {
     });
   }, [profile?.id]);
 
+  // ── 1. TÍNH TOÁN CÁC CHỈ SỐ TỔNG QUAN (Metrics) ───────────────
+  // useMemo giúp cache lại kết quả tính toán, chỉ tính lại khi mảng submissions thay đổi
   const metrics = useMemo(() => {
     if (!submissions.length) return null;
     const scores = submissions.map(s => parseFloat(s.score));
@@ -102,6 +113,8 @@ const Statistics = () => {
     return { avg: avg.toFixed(1), best: best.toFixed(1), worst: worst.toFixed(1), passRate, total: submissions.length, passed };
   }, [submissions]);
 
+  // ── 2. CHUẨN BỊ DỮ LIỆU XU HƯỚNG ĐIỂM SỐ (Line Chart) ────────
+  // Sắp xếp bài thi theo thứ tự thời gian cũ -> mới, lấy 10 bài gần nhất
   const trendData = useMemo(() => {
     return [...submissions]
       .sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))
@@ -113,6 +126,8 @@ const Statistics = () => {
       }));
   }, [submissions]);
 
+  // ── 3. CHUẨN BỊ DỮ LIỆU PHÂN BỐ ĐIỂM SỐ (Bar Chart) ──────────
+  // Phân loại điểm số vào 4 nhóm: 0-5 (Yếu), 5-7 (TB), 7-9 (Khá), 9-10 (Giỏi)
   const distData = useMemo(() => {
     const buckets = [
       { range: '0-5', min: 0, max: 5 },
@@ -129,6 +144,7 @@ const Statistics = () => {
     }));
   }, [submissions]);
 
+  // ── 4. CHUẨN BỊ DỮ LIỆU TỶ LỆ ĐẠT / TRƯỢT (Pie Chart) ────────
   const pieData = metrics ? [
     { name: 'Đạt (≥5)', value: metrics.passed, color: '#22c55e' },
     { name: 'Không đạt', value: metrics.total - metrics.passed, color: '#ef4444' },

@@ -37,20 +37,17 @@ const NAV_CONFIG = {
       { icon: 'dashboard',            label: 'Bảng điều khiển',  to: '/student/dashboard'  },
       { icon: 'school',               label: 'Lớp học',          to: '/student/classes'    },
       { icon: 'quiz',                 label: 'Thi trực tuyến',   to: '/student/exams'      },
-      { icon: 'auto_stories',         label: 'Luyện tập',        to: '/student/practice'   },
+      { icon: 'assignment_turned_in', label: 'Đề thi thử',       to: '/student/mock-exams' },
       { icon: 'style',                label: 'Flashcard',        to: '/student/flashcards' },
       { icon: 'history',              label: 'Lịch sử làm bài',  to: '/student/history'    },
       { icon: 'bar_chart',            label: 'Thống kê học tập', to: '/student/statistics' },
-      { icon: 'assignment_turned_in', label: 'Đề thi thử',       to: '/student/mock-exams' },
     ],
   },
 };
 
-const Sidebar = ({ role, onLogout, loggingOut, onClose }) => {
+const Sidebar = ({ role, onClose }) => {
   const location = useLocation();
-  const profile  = useSelector(selectProfile);
   const config   = NAV_CONFIG[role] ?? NAV_CONFIG.STUDENT;
-  const initial  = (profile?.full_name ?? role ?? 'U').trim().charAt(0).toUpperCase();
 
   const prevPath = useRef(location.pathname);
   useEffect(() => {
@@ -93,28 +90,11 @@ const Sidebar = ({ role, onLogout, loggingOut, onClose }) => {
           );
         })}
       </nav>
-
-      <div className="h-px bg-slate-100 mx-3" />
-
-      <div className="px-3 py-3 space-y-1">
-        <Link to="/common/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group">
-          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${config.accent} flex items-center justify-center text-white text-sm font-bold shrink-0`}>{initial}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-800 truncate leading-tight">{profile?.full_name ?? config.label}</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider leading-tight">{profile?.student_id ?? profile?.teacher_code ?? 'Xem hồ sơ'}</p>
-          </div>
-          <span className="material-symbols-outlined text-sm text-slate-300 group-hover:text-slate-500 shrink-0">chevron_right</span>
-        </Link>
-        <button onClick={onLogout} disabled={loggingOut} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all duration-150 disabled:opacity-50 group">
-          <span className="material-symbols-outlined text-xl group-hover:text-red-500 transition-colors">logout</span>
-          <span className="text-sm font-semibold">{loggingOut ? 'Đang thoát...' : 'Đăng xuất'}</span>
-        </button>
-      </div>
     </aside>
   );
 };
 
-const AppHeader = ({ onMenuToggle }) => {
+const AppHeader = ({ onMenuToggle, onLogout, loggingOut }) => {
   const profile  = useSelector(selectProfile);
   const navigate = useNavigate();
   return (
@@ -122,14 +102,11 @@ const AppHeader = ({ onMenuToggle }) => {
       <button onClick={onMenuToggle} className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 transition-colors shrink-0" aria-label="Mở menu">
         <span className="material-symbols-outlined text-xl">menu</span>
       </button>
-      <div className="flex items-center bg-slate-100 rounded-full px-4 py-2 flex-1 max-w-xs gap-2">
-        <span className="material-symbols-outlined text-slate-400 text-lg shrink-0">search</span>
-        <input type="text" placeholder="Tìm kiếm nhanh..." className="bg-transparent border-none focus:ring-0 text-sm w-full outline-none placeholder:text-slate-400" readOnly />
-      </div>
+
       <div className="flex-1" />
       <div className="flex items-center gap-2">
         <NotificationBell />
-        <button className="flex items-center gap-2.5 hover:bg-slate-50 rounded-xl px-2.5 py-1.5 transition-colors" onClick={() => navigate('/common/profile')}>
+        <button className="flex items-center gap-2.5 hover:bg-slate-50 rounded-xl px-2.5 py-1.5 transition-colors" onClick={() => navigate('/common/profile')} title="Xem hồ sơ">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center text-white text-sm font-bold shrink-0">
             {(profile?.full_name ?? 'U').trim().charAt(0).toUpperCase()}
           </div>
@@ -137,6 +114,10 @@ const AppHeader = ({ onMenuToggle }) => {
             <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[100px]">{profile?.full_name ?? 'Người dùng'}</p>
             <p className="text-[10px] text-slate-400 leading-tight">{{ ADMIN: 'Quản trị viên', TEACHER: 'Giảng viên', STUDENT: 'Sinh viên' }[profile?.role] ?? ''}</p>
           </div>
+        </button>
+        <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
+        <button onClick={onLogout} disabled={loggingOut} className="flex items-center justify-center w-9 h-9 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50" title="Đăng xuất">
+          <span className={`material-symbols-outlined text-lg ${loggingOut ? 'animate-spin' : ''}`}>{loggingOut ? 'sync' : 'logout'}</span>
         </button>
       </div>
     </header>
@@ -170,14 +151,14 @@ const AppLayout = ({ children, role }) => {
   return (
     <div className="flex min-h-screen bg-slate-50">
       <div className="hidden lg:flex lg:flex-col lg:h-screen lg:sticky lg:top-0 shrink-0">
-        <Sidebar role={role} onLogout={handleLogout} loggingOut={loggingOut} />
+        <Sidebar role={role} />
       </div>
       {open && <div className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden="true" />}
       <div className={`lg:hidden fixed left-0 top-0 bottom-0 z-50 w-72 bg-white shadow-2xl flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar role={role} onLogout={handleLogout} loggingOut={loggingOut} onClose={() => setOpen(false)} />
+        <Sidebar role={role} onClose={() => setOpen(false)} />
       </div>
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        <AppHeader onMenuToggle={() => setOpen(s => !s)} />
+        <AppHeader onMenuToggle={() => setOpen(s => !s)} onLogout={handleLogout} loggingOut={loggingOut} />
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
           {children}
         </main>

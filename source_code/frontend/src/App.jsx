@@ -14,6 +14,7 @@ import React, { Suspense, lazy } from 'react';
  *   React sẽ chỉ tải code của trang hiện tại khi người dùng click vào trang đó. Suspense hiển thị PageLoader trong lúc tải file code.
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useSelector } from 'react-redux';
 import { selectProfile, selectIsAuthenticated } from './features/authentication/authenticationSlice';
 
@@ -120,58 +121,59 @@ const RequireGuest = ({ children }) => {
  * Component App chứa toàn bộ luồng cấu hình Route của dự án.
  */
 const App = () => (
-  <BrowserRouter>
-    {/* Bọc toàn bộ Router trong Suspense để hỗ trợ việc Lazy Load components ở trên */}
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
-        {/* Trang chủ gốc `/` - Tự động định hướng tùy vai trò của người dùng */}
-        <Route path="/" element={<RootRedirect />} />
+  <ErrorBoundary>
+    <BrowserRouter>
+      {/* Bọc toàn bộ Router trong Suspense để hỗ trợ việc Lazy Load components ở trên */}
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Trang chủ gốc `/` - Tự động định hướng tùy vai trò của người dùng */}
+          <Route path="/" element={<RootRedirect />} />
 
-        {/* Cấu hình các route Auth dành cho khách vãng lai */}
-        <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
-        <Route path="/register" element={<RequireGuest><RegisterPage /></RequireGuest>} />
+          {/* Cấu hình các route Auth dành cho khách vãng lai */}
+          <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
+          <Route path="/register" element={<RequireGuest><RegisterPage /></RequireGuest>} />
 
-        {/* ─── Phân hệ ADMIN (Yêu cầu quyền ADMIN) ───────────────────────────────────────── */}
-        <Route path="/admin" element={<RequireAuth allowedRoles={['ADMIN']}><Navigate to="/admin/dashboard" replace /></RequireAuth>} />
-        <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['ADMIN']}><AdminDashboard /></RequireAuth>} />
-        <Route path="/admin/users" element={<RequireAuth allowedRoles={['ADMIN']}><UserManagement /></RequireAuth>} />
-        <Route path="/admin/security" element={<RequireAuth allowedRoles={['ADMIN']}><AdminSecurity /></RequireAuth>} />
-        <Route path="/admin/settings" element={<RequireAuth allowedRoles={['ADMIN']}><SystemSettings /></RequireAuth>} />
+          {/* ─── Phân hệ ADMIN (Yêu cầu quyền ADMIN) ───────────────────────────────────────── */}
+          <Route path="/admin" element={<RequireAuth allowedRoles={['ADMIN']}><Navigate to="/admin/dashboard" replace /></RequireAuth>} />
+          <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['ADMIN']}><AdminDashboard /></RequireAuth>} />
+          <Route path="/admin/users" element={<RequireAuth allowedRoles={['ADMIN']}><UserManagement /></RequireAuth>} />
+          <Route path="/admin/security" element={<RequireAuth allowedRoles={['ADMIN']}><AdminSecurity /></RequireAuth>} />
+          <Route path="/admin/settings" element={<RequireAuth allowedRoles={['ADMIN']}><SystemSettings /></RequireAuth>} />
 
-        {/* ─── Phân hệ GIÁO VIÊN (Yêu cầu quyền TEACHER) ─────────────────────────────────────── */}
-        <Route path="/teacher" element={<RequireAuth allowedRoles={['TEACHER']}><Navigate to="/teacher/dashboard" replace /></RequireAuth>} />
-        <Route path="/teacher/dashboard" element={<RequireAuth allowedRoles={['TEACHER']}><TeacherDashboard /></RequireAuth>} />
-        <Route path="/teacher/classes" element={<RequireAuth allowedRoles={['TEACHER']}><ClassManagement /></RequireAuth>} />
-        <Route path="/teacher/exams" element={<RequireAuth allowedRoles={['TEACHER']}><ExamBank /></RequireAuth>} />
-        <Route path="/teacher/questions" element={<RequireAuth allowedRoles={['TEACHER']}><QuestionBank /></RequireAuth>} />
-        <Route path="/teacher/materials" element={<RequireAuth allowedRoles={['TEACHER']}><MaterialLibrary /></RequireAuth>} />
-        <Route path="/teacher/reports" element={<RequireAuth allowedRoles={['TEACHER']}><TeacherReports /></RequireAuth>} />
-        <Route path="/teacher/exam-matrices" element={<RequireAuth allowedRoles={['TEACHER']}><ExamMatrices /></RequireAuth>} />
-        <Route path="/teacher/essay-grading" element={<RequireAuth allowedRoles={['TEACHER']}><EssayGrading /></RequireAuth>} />
-        <Route path="/teacher/ai-generator" element={<RequireAuth allowedRoles={['TEACHER']}><AiQuestionGenerator /></RequireAuth>} />
+          {/* ─── Phân hệ GIÁO VIÊN (Yêu cầu quyền TEACHER) ─────────────────────────────────────── */}
+          <Route path="/teacher" element={<RequireAuth allowedRoles={['TEACHER']}><Navigate to="/teacher/dashboard" replace /></RequireAuth>} />
+          <Route path="/teacher/dashboard" element={<RequireAuth allowedRoles={['TEACHER']}><TeacherDashboard /></RequireAuth>} />
+          <Route path="/teacher/classes" element={<RequireAuth allowedRoles={['TEACHER']}><ClassManagement /></RequireAuth>} />
+          <Route path="/teacher/exams" element={<RequireAuth allowedRoles={['TEACHER']}><ExamBank /></RequireAuth>} />
+          <Route path="/teacher/questions" element={<RequireAuth allowedRoles={['TEACHER']}><QuestionBank /></RequireAuth>} />
+          <Route path="/teacher/materials" element={<RequireAuth allowedRoles={['TEACHER']}><MaterialLibrary /></RequireAuth>} />
+          <Route path="/teacher/reports" element={<RequireAuth allowedRoles={['TEACHER']}><TeacherReports /></RequireAuth>} />
+          <Route path="/teacher/exam-matrices" element={<RequireAuth allowedRoles={['TEACHER']}><ExamMatrices /></RequireAuth>} />
+          <Route path="/teacher/essay-grading" element={<RequireAuth allowedRoles={['TEACHER']}><EssayGrading /></RequireAuth>} />
+          <Route path="/teacher/ai-generator" element={<RequireAuth allowedRoles={['TEACHER']}><AiQuestionGenerator /></RequireAuth>} />
 
-        {/* ─── Phân hệ HỌC SINH (Yêu cầu quyền STUDENT) ─────────────────────────────────────── */}
-        <Route path="/student" element={<RequireAuth allowedRoles={['STUDENT']}><Navigate to="/student/dashboard" replace /></RequireAuth>} />
-        <Route path="/student/dashboard" element={<RequireAuth allowedRoles={['STUDENT']}><StudentDashboard /></RequireAuth>} />
-        <Route path="/student/classes" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClasses /></RequireAuth>} />
-        <Route path="/student/classes/:classId" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClassDetail /></RequireAuth>} />
-        <Route path="/student/exams" element={<RequireAuth allowedRoles={['STUDENT']}><ExamList /></RequireAuth>} />
-        <Route path="/student/exam" element={<RequireAuth allowedRoles={['STUDENT']}><ExamTaking /></RequireAuth>} />
-        <Route path="/student/review" element={<RequireAuth allowedRoles={['STUDENT']}><ExamReview /></RequireAuth>} />
-        <Route path="/student/history" element={<RequireAuth allowedRoles={['STUDENT']}><ExamHistory /></RequireAuth>} />
-        <Route path="/student/practice" element={<RequireAuth allowedRoles={['STUDENT']}><Practice /></RequireAuth>} />
-        <Route path="/student/flashcards" element={<RequireAuth allowedRoles={['STUDENT']}><Flashcards /></RequireAuth>} />
-        <Route path="/student/mock-exams" element={<RequireAuth allowedRoles={['STUDENT']}><MockExams /></RequireAuth>} />
-        <Route path="/student/statistics" element={<RequireAuth allowedRoles={['STUDENT']}><Statistics /></RequireAuth>} />
+          {/* ─── Phân hệ HỌC SINH (Yêu cầu quyền STUDENT) ─────────────────────────────────────── */}
+          <Route path="/student" element={<RequireAuth allowedRoles={['STUDENT']}><Navigate to="/student/dashboard" replace /></RequireAuth>} />
+          <Route path="/student/dashboard" element={<RequireAuth allowedRoles={['STUDENT']}><StudentDashboard /></RequireAuth>} />
+          <Route path="/student/classes" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClasses /></RequireAuth>} />
+          <Route path="/student/classes/:classId" element={<RequireAuth allowedRoles={['STUDENT']}><StudentClassDetail /></RequireAuth>} />
+          <Route path="/student/exams" element={<RequireAuth allowedRoles={['STUDENT']}><ExamList /></RequireAuth>} />
+          <Route path="/student/exam" element={<RequireAuth allowedRoles={['STUDENT']}><ExamTaking /></RequireAuth>} />
+          <Route path="/student/review" element={<RequireAuth allowedRoles={['STUDENT']}><ExamReview /></RequireAuth>} />
+          <Route path="/student/history" element={<RequireAuth allowedRoles={['STUDENT']}><ExamHistory /></RequireAuth>} />
+          <Route path="/student/flashcards" element={<RequireAuth allowedRoles={['STUDENT']}><Flashcards /></RequireAuth>} />
+          <Route path="/student/mock-exams" element={<RequireAuth allowedRoles={['STUDENT']}><MockExams /></RequireAuth>} />
+          <Route path="/student/statistics" element={<RequireAuth allowedRoles={['STUDENT']}><Statistics /></RequireAuth>} />
 
-        {/* ─── Route chung dành cho bất kỳ ai đã đăng nhập ─────────────── */}
-        <Route path="/common/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+          {/* ─── Route chung dành cho bất kỳ ai đã đăng nhập ─────────────── */}
+          <Route path="/common/profile" element={<RequireAuth><Profile /></RequireAuth>} />
 
-        {/* Catch-all: Nếu gõ bừa URL không khớp với bất kỳ Route nào ở trên, hiển thị trang NotFound 404 */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
-  </BrowserRouter>
+          {/* Catch-all: Nếu gõ bừa URL không khớp với bất kỳ Route nào ở trên, hiển thị trang NotFound 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  </ErrorBoundary>
 );
 
 /**

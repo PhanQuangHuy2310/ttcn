@@ -21,6 +21,8 @@ const ExamList = () => {
   useEffect(() => {
     if (!profile?.id) return;
 
+    // ── EFFECT: Tải danh sách đề thi ──────────────────────────────────────
+    // Hoạt động: Fetch toàn bộ đề thi từ server và lọc ra những đề thi hợp lệ.
     const load = async () => {
       setLoading(true);
       // Lấy toàn bộ đề thi mà học sinh này có quyền xem (thông qua RLS lớp học)
@@ -32,8 +34,9 @@ const ExamList = () => {
         // LỌC: Chỉ lấy bài THI CHÍNH THỨC (không chứa từ Thi thử) VÀ PHẢI ĐANG MỞ (ACTIVE)
         const officialExams = (data ?? []).filter(exam => {
           const isMock = exam.title.toLowerCase().includes('thi thử') || exam.title.toLowerCase().includes('luyện tập');
-          // Học sinh chỉ thấy bài thi khi trạng thái là ACTIVE (Mở)
-          return !isMock && exam.status === 'ACTIVE';
+          // YÊU CẦU 4: Bổ sung logic ẩn ngay lập tức nếu đề thi đã vượt quá giờ đóng (end_time)
+          const isExpired = exam.end_time && new Date(exam.end_time).getTime() < Date.now();
+          return !isMock && exam.status === 'ACTIVE' && !isExpired;
         });
         setExams(officialExams);
       }

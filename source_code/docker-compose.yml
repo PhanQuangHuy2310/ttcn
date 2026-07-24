@@ -11,6 +11,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: ttcn-backend
+    ports:
+      - "8085:8085"
     env_file:
       - ./backend/.env
     environment:

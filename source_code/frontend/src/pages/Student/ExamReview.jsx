@@ -19,9 +19,11 @@ const getOptionsArray = (opts) => {
   return [];
 };
 
+// Component hiển thị chi tiết kết quả bài thi sau khi nộp
+// Bao gồm: Điểm số, nhận xét của giáo viên, danh sách câu hỏi (đúng/sai) và phần trả lời tự luận.
 const ExamReview = () => {
   const [params] = useSearchParams();
-  const examId = params.get('id');
+  const examId = params.get('id'); // ID bài thi trên URL
   const profile = useSelector(selectProfile);
   const navigate = useNavigate();
   const [exam, setExam] = useState(null);
@@ -30,8 +32,10 @@ const ExamReview = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ── EFFECT: Tải dữ liệu kết quả bài thi ────────────────────────────────
+  // Gọi đồng thời 3 API: Thông tin đề thi, Danh sách câu hỏi, và Bài nộp (submission) của user hiện tại
   useEffect(() => {
-    if (!examId || !profile?.id) return;
+    if (!examId || examId === 'undefined' || !profile?.id) return;
     const load = async () => {
       setLoading(true);
       const [examRes, qRes, subRes] = await Promise.all([
@@ -41,6 +45,7 @@ const ExamReview = () => {
       ]);
       setExam(examRes.data);
       setQuestions(qRes.data ?? []);
+      // Tìm bài nộp (submission) khớp với examId hiện tại
       setSubmission((subRes.data ?? []).find(s => s.exam_id === examId) ?? null);
       if (examRes.error) setError('Không tìm thấy đề thi.');
       setLoading(false);
@@ -49,6 +54,11 @@ const ExamReview = () => {
   }, [examId, profile?.id]);
 
   const answers = submission?.answers ?? {};
+
+  // YÊU CẦU 7: Chặn quyền truy cập nếu bài thi chưa nộp (IN_PROGRESS) để chống Bypass lấy đáp án qua URL
+  if (submission && submission.status === 'IN_PROGRESS') {
+    return <AppLayout role="STUDENT"><ErrorBanner message="Bài thi chưa hoàn thành. Hành vi truy cập trái phép đã bị chặn!" /></AppLayout>;
+  }
 
   if (!examId) return <AppLayout role="STUDENT"><ErrorBanner message="Không tìm thấy mã đề thi." /></AppLayout>;
 
@@ -94,10 +104,11 @@ const ExamReview = () => {
         <div className="space-y-4">{[1, 2, 3].map(i => <Sk key={i} className="h-32 w-full" />)}</div>
       ) : (
         <div className="space-y-4">
+          {/* ─── DANH SÁCH CÂU HỎI & ĐÁP ÁN ───────────────────────────── */}
           {questions.map((q, idx) => {
-            const chosen = answers[q.id];
-            const correct = q.correct_answer;
-            const optionsArray = getOptionsArray(q.options); // Lấy mảng an toàn
+            const chosen = answers[q.id]; // Đáp án học sinh đã chọn
+            const correct = q.correct_answer; // Đáp án đúng trên hệ thống
+            const optionsArray = getOptionsArray(q.options); // Lấy mảng an toàn chống sập React
 
             return (
               <Card key={q.id}>
@@ -112,12 +123,31 @@ const ExamReview = () => {
                   {q.type === 'MCQ' && (
                     <div className="space-y-2">
                       {optionsArray.map((choice, i) => {
-                        const isChosen = choice === chosen;
-                        const isCorrect = choice === correct;
+                        const isObject = typeof choice === 'object' && choice !== null;
+                        const choiceText = isObject ? (choice.text || choice.content || choice.value || JSON.stringify(choice)) : choice;
+
+                        let isChosen = false;
+                        if (isObject && typeof chosen === 'object' && chosen !== null) {
+                          isChosen = chosen.id === choice.id || chosen.text === choice.text;
+                        } else if (isObject && typeof chosen === 'string') {
+                          isChosen = chosen === choice.id || chosen === choiceText;
+                        } else {
+                          isChosen = chosen === choice;
+                        }
+
+                        let isCorrect = false;
+                        if (isObject && typeof correct === 'object' && correct !== null) {
+                          isCorrect = correct.id === choice.id || correct.text === choice.text;
+                        } else if (isObject && typeof correct === 'string') {
+                          isCorrect = correct === choice.id || correct === choiceText;
+                        } else {
+                          isCorrect = correct === choice;
+                        }
+
                         return (
                           <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${isCorrect ? 'border-green-300 bg-green-50' : isChosen && !isCorrect ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}>
                             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isCorrect ? 'bg-green-500 text-white' : isChosen && !isCorrect ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{String.fromCharCode(65 + i)}</span>
-                            <span className="text-sm">{choice}</span>
+                            <span className="text-sm">{choiceText}</span>
                             {isCorrect && <span className="ml-auto text-xs text-green-600 font-bold">Đúng</span>}
                             {isChosen && !isCorrect && <span className="ml-auto text-xs text-red-500 font-bold">Sai</span>}
                           </div>

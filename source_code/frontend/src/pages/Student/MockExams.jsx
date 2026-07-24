@@ -7,9 +7,11 @@ import AppLayout from '../../components/AppLayout';
 import { Btn, Card, EmptyState, ErrorBanner, Sk, PageHeader, ScoreBadge, StatusBadge, fmtDateTime, fmtDuration } from '../../components/ui';
 import { examsService, submissionsService } from '../../services/supabaseService';
 
+// ── COMPONENT PHỤ: Thẻ hiển thị một đề thi thử ─────────────────────
+// MỤC ĐÍCH: Hiển thị thông tin tổng quan của một đề thi thử (Thời gian, trạng thái, điểm số).
 const MockExamCard = ({ exam, submission, onStart }) => {
-  const hasAttempt = !!submission;
-  const isGraded = submission?.status === 'GRADED' || submission?.status === 'SUBMITTED';
+  const hasAttempt = !!submission; // Học sinh đã từng làm bài này chưa?
+  const isGraded = submission?.status === 'GRADED' || submission?.status === 'SUBMITTED'; // Đã có điểm?
   const score = submission?.score;
 
   return (
@@ -55,6 +57,7 @@ const MockExamCard = ({ exam, submission, onStart }) => {
   );
 };
 
+// ── COMPONENT CHÍNH: Trang Danh sách Đề Thi Thử ───────────────────
 const MockExams = () => {
   const profile = useSelector(selectProfile);
   const navigate = useNavigate();
@@ -65,17 +68,19 @@ const MockExams = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('ALL');
 
+  // ── EFFECT: Tải danh sách các đề thi thử ─────────────────────────
   useEffect(() => {
     if (!profile?.id) return;
     const load = async () => {
       setLoading(true);
+      // Lấy toàn bộ đề thi mà học sinh này có quyền xem + lịch sử làm bài cá nhân
       const [examRes, subRes] = await Promise.all([
         examsService.getAll(),
         submissionsService.getByStudent(profile.id),
       ]);
       if (examRes.error) { setError('Không thể tải danh sách đề thi.'); setLoading(false); return; }
 
-      // Chỉ lấy bài do giáo viên gán nhãn [Thi thử] và đang ACTIVE
+      // LỌC: Chỉ lấy bài do giáo viên gán nhãn có chữ "[Thi thử]" VÀ trạng thái phải đang ACTIVE
       const mockExams = (examRes.data ?? []).filter(e => e.title.includes('[Thi thử]') && e.status === 'ACTIVE');
 
       setExams(mockExams);

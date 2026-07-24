@@ -1,0 +1,22 @@
+# Danh sách công việc (Tasks) - Kế hoạch Kiểm thử Toàn diện
+
+- `[x]` **Giai đoạn 1: Backend Unit Tests**
+  - `[x]` Cập nhật `pom.xml` để thêm JUnit 5 và Mockito (nếu chưa có).
+  - `[x]` Viết Unit Test cho `AutoGradeService` (3 test cases).
+  - `[x]` Viết Unit Test cho `CourseService` (3 test cases).
+  - `[x]` Viết Unit Test cho `AiExamService` (3 test cases).
+  - `[x]` Viết Unit Test cho `AiFlashcardService` (3 test cases).
+  - `[x]` Viết Unit Test cho `UserService` (3 test cases).
+  - `[x]` Chạy test và kiểm tra độ bao phủ (Coverage).
+- `[x]` **Giai đoạn 2: Frontend Unit Tests**
+  - `[x]` Cài đặt Vitest và React Testing Library.
+  - `[x]` Viết test cho Component Biểu mẫu (Validation) (3 test cases).
+  - `[x]` Viết test cho Component Danh sách khóa học (3 test cases).
+  - `[x]` Viết test cho Component Hiển thị bài thi trắc nghiệm (3 test cases).
+- `[x]` **Giai đoạn 3: Integration Tests**
+  - `[x]` Viết Integration Test cho Backend (Kết nối DB).
+  - `[x]` Viết Integration Test cho luồng upload AI với Mock.
+- `[x]` **Giai đoạn 4: System & Performance Tests**
+  - `[x]` Cài đặt Playwright.
+  - `[x]` Viết kịch bản E2E Test (Playwright) cho luồng chính.
+  - `[x]` Tạo kịch bản mô phỏng bằng Artillery.

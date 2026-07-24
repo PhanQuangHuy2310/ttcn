@@ -12,4 +12,6 @@ import java.util.UUID;
 public interface QuestionRepository extends JpaRepository<Question, UUID> {
     // Tìm kiếm câu hỏi trong ngân hàng câu hỏi (Không phân biệt hoa thường)
     List<Question> findByContentContainingIgnoreCase(String content);
+
+    List<Question> findByExamId(UUID examId);
 }

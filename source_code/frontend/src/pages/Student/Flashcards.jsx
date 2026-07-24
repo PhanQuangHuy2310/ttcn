@@ -14,8 +14,10 @@ import {
 } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 
+// ── Component: Chế độ Học (Study Mode) ────────────────────────────────────
+// MỤC ĐÍCH: Hiển thị giao diện lật thẻ toàn màn hình. Cho phép học sinh xem câu hỏi, lật xem đáp án và duyệt qua các thẻ.
 const StudyMode = ({ cards, onClose }) => {
-  const [idx, setIdx] = useState(0);
+  const [idx, setIdx] = useState(0); // Chỉ số của thẻ hiện tại
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -45,16 +47,42 @@ const StudyMode = ({ cards, onClose }) => {
         </div>
         <div className="h-1.5 bg-white/20 rounded-full mb-8"><div className="h-1.5 bg-white rounded-full transition-all" style={{ width: `${((idx + 1) / cards.length) * 100}%` }} /></div>
 
-        <div onClick={() => setFlipped(f => !f)} className="bg-white rounded-3xl shadow-2xl min-h-[300px] flex flex-col items-center justify-center p-12 cursor-pointer select-none hover:scale-[1.02] transition-transform">
-          <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-6">{flipped ? 'Đáp án' : 'Câu hỏi'}</span>
-          <p className="text-2xl font-bold text-slate-800 text-center leading-relaxed">{flipped ? card.back_text : card.front_text}</p>
-          <p className="text-xs text-slate-400 mt-8 font-medium italic">{flipped ? 'Nhấp để lật lại câu hỏi' : 'Nhấp để xem đáp án'}</p>
+        {/* TÍNH NĂNG MỚI: Hiệu ứng 3D Lật thẻ mượt mà & Viền sáng (Gamification) */}
+        <div className="perspective-1000">
+          <div 
+            onClick={() => setFlipped(f => !f)} 
+            className={`relative w-full min-h-[300px] cursor-pointer transition-transform duration-700 transform-style-3d ${flipped ? 'rotate-y-180' : ''}`}
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            {/* Mặt trước (Câu hỏi) */}
+            <div 
+              className="absolute inset-0 bg-white rounded-3xl shadow-2xl flex flex-col items-center justify-center p-12 backface-hidden ring-4 ring-indigo-500/20 hover:ring-indigo-500/50 transition-all"
+              style={{ backfaceVisibility: 'hidden' }}
+            >
+              <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                Câu hỏi
+              </span>
+              <p className="text-2xl font-bold text-slate-800 text-center leading-relaxed">{card.front_text}</p>
+              <p className="text-xs text-slate-400 mt-8 font-medium italic group-hover:text-indigo-400">Nhấp để xem đáp án</p>
+            </div>
+
+            {/* Mặt sau (Đáp án) */}
+            <div 
+              className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl shadow-2xl flex flex-col items-center justify-center p-12 backface-hidden ring-4 ring-purple-500/50"
+              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+            >
+              <span className="text-xs font-bold text-white/80 uppercase tracking-widest mb-6">Đáp án</span>
+              <p className="text-2xl font-bold text-white text-center leading-relaxed">{card.back_text}</p>
+              <p className="text-xs text-white/60 mt-8 font-medium italic">Nhấp để lật lại</p>
+            </div>
+          </div>
         </div>
 
         {flipped && (
-          <div className="flex gap-4 mt-6">
-            <button onClick={() => { setFlipped(false); setIdx(i => Math.max(0, i - 1)); }} disabled={idx === 0} className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-bold hover:bg-white/20 disabled:opacity-30 transition">← Trước</button>
-            <button onClick={() => { setFlipped(false); if (idx === cards.length - 1) setDone(true); else setIdx(i => i + 1); }} className="flex-1 py-4 bg-white text-slate-900 rounded-2xl font-bold hover:bg-slate-100 transition shadow-lg">{idx === cards.length - 1 ? 'Hoàn thành ✓' : 'Tiếp theo →'}</button>
+          <div className="flex gap-4 mt-8 animate-in fade-in slide-in-from-bottom-4">
+            <button onClick={() => { setFlipped(false); setTimeout(() => setIdx(i => Math.max(0, i - 1)), 300); }} disabled={idx === 0} className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-bold hover:bg-white/20 disabled:opacity-30 transition border border-white/20">← Trước</button>
+            <button onClick={() => { setFlipped(false); setTimeout(() => { if (idx === cards.length - 1) setDone(true); else setIdx(i => i + 1); }, 300); }} className="flex-1 py-4 bg-white text-indigo-700 rounded-2xl font-bold hover:bg-slate-50 transition shadow-lg shadow-white/10">{idx === cards.length - 1 ? 'Hoàn thành ✓' : 'Tiếp theo →'}</button>
           </div>
         )}
       </div>
@@ -62,9 +90,11 @@ const StudyMode = ({ cards, onClose }) => {
   );
 };
 
+// ── Component: Modal Tạo thẻ bằng AI (Gemini) ───────────────────────────
+// MỤC ĐÍCH: Gửi file PDF lên server, gọi API trích xuất thẻ ghi nhớ tự động và hiển thị kết quả cho học sinh chỉnh sửa trước khi lưu.
 const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
   const fileRef = useRef(null);
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState(null); // File PDF người dùng tải lên
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [courses, setCourses] = useState([]);
@@ -111,6 +141,7 @@ const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
     }
   };
 
+  // ── LOGIC: Gửi PDF lên server AI để phân tích ─────────────────────────
   const handleGenerate = async (e) => {
     e.preventDefault();
     if (!file) { setError('Vui lòng chọn file PDF.'); return; }
@@ -149,6 +180,7 @@ const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
     }
   };
 
+  // ── LOGIC: Lưu bộ thẻ vào CSDL (Flashcard Sets & Flashcards) ──────────
   const handleSave = async () => {
     setSaving(true);
     setError(null);
@@ -308,14 +340,17 @@ const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
   );
 };
 
+// ── Component Chính: Trang Quản lý Flashcards ────────────────────────────
 const Flashcards = () => {
   const profile = useSelector(selectProfile);
-  const [sets, setSets] = useState([]);
+  const [sets, setSets] = useState([]); // Danh sách các bộ thẻ Flashcards
   const [studySet, setStudySet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
+  // ── EFFECT: Tải danh sách bộ Flashcards ────────────────────────────────
+  // Lấy các bộ thẻ của môn học sinh đang tham gia (Giáo viên tạo) VÀ bộ thẻ do chính học sinh tự tạo.
   const loadFlashcardSets = async () => {
     if (!profile?.id) return;
     setLoading(true);

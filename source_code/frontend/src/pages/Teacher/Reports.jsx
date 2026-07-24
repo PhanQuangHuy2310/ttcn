@@ -5,6 +5,7 @@ import { selectProfile } from '../../features/authentication/authenticationSlice
 import AppLayout from '../../components/AppLayout';
 import { StatCard, Card, CardHeader, EmptyState, ErrorBanner, Sk, PageHeader, ScoreBadge, fmtDate, Select } from '../../components/ui';
 import { coursesService, submissionsService, examsService } from '../../services/supabaseService';
+import { reportsApi } from '../../services/reports.api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
@@ -65,6 +66,9 @@ const Reports = () => {
   const [subLoading, setSubLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedExam, setSelectedExam] = useState('');
+  const [activeTab, setActiveTab] = useState('STATS'); // STATS or ALERTS
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
 
   const load = async () => {
     if (!profile?.id) return;
@@ -94,6 +98,16 @@ const Reports = () => {
     submissionsService.getByExam(selectedExam).then(({ data }) => { setSubmissions(data ?? []); setSubLoading(false); });
   }, [selectedExam]);
 
+  useEffect(() => {
+    if (activeTab === 'ALERTS' && alerts.length === 0 && !alertsLoading) {
+      setAlertsLoading(true);
+      reportsApi.getStudyAlerts().then(({ data }) => {
+        setAlerts(data ?? []);
+        setAlertsLoading(false);
+      });
+    }
+  }, [activeTab]);
+
   const scored = submissions.filter(s => s.score !== null);
   const avgScore = scored.length ? (scored.reduce((a, s) => a + parseFloat(s.score), 0) / scored.length).toFixed(1) : null;
   const topScore = scored.length ? Math.max(...scored.map(s => parseFloat(s.score))).toFixed(1) : null;
@@ -112,76 +126,138 @@ const Reports = () => {
       </div>
 
       <Card className="mb-6">
-        <CardHeader title="Phân tích chất lượng bài thi" subtitle="Chọn đề thi để xem phổ điểm chi tiết" />
-        <div className="px-6 py-4">
-          <div className="max-w-md">
-            <Select value={selectedExam} onChange={e => setSelectedExam(e.target.value)}>
-              <option value="">— Vui lòng chọn đề thi cần xem báo cáo —</option>
-
-              <optgroup label="✅ Đề thi Chính thức (Lấy điểm)">
-                {allExams.filter(e => !e.title.includes('[Thi thử]')).map(e => (
-                  <option key={e.id} value={e.id}>{e.title}</option>
-                ))}
-              </optgroup>
-
-              <optgroup label="📝 Đề thi Thử (Tự luyện)">
-                {allExams.filter(e => e.title.includes('[Thi thử]')).map(e => (
-                  <option key={e.id} value={e.id}>{e.title.replace('[Thi thử]', '').trim()}</option>
-                ))}
-              </optgroup>
-            </Select>
-          </div>
-
-          {selectedExam && (
-            <div className="mt-6">
-              {subLoading ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><Sk className="h-48 w-full" /><Sk className="h-48 w-full" /></div>
-              ) : submissions.length === 0 ? (
-                <EmptyState icon="assignment" title="Chưa có sinh viên làm bài" subtitle="Không có dữ liệu thống kê cho đề thi này." />
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <StatCard icon="group" iconBg="bg-blue-50 text-blue-600" label="Tổng số bài nộp" value={submissions.length} />
-                    <StatCard icon="grade" iconBg="bg-green-50 text-green-600" label="Điểm Trung bình" value={avgScore ?? '—'} />
-                    <StatCard icon="trending_up" iconBg="bg-orange-50 text-orange-600" label="Điểm Cao nhất" value={topScore ?? '—'} />
-                    <StatCard icon="timer" iconBg="bg-purple-50 text-purple-600" label="Điểm chuẩn (Pass)" value={selectedExamObj?.pass_score ?? '—'} />
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div><p className="text-sm font-bold text-slate-700 mb-3">Phân bố điểm số</p><ScoreDistChart submissions={scored} /></div>
-                    <div><p className="text-sm font-bold text-slate-700 mb-3">Tỷ lệ đạt / không đạt</p><PassFailPie submissions={scored} passScore={selectedExamObj?.pass_score ?? 5} /></div>
-                  </div>
-
-                  <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr>
-                          {['Sinh viên', 'Email', 'Điểm', 'Trạng thái', 'Thoát tab', 'Thời gian nộp'].map(h => (
-                            <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {submissions.map(s => (
-                          <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
-                            <td className="px-4 py-3 font-semibold text-slate-800">{s.users?.full_name ?? '—'}</td>
-                            <td className="px-4 py-3 text-slate-500">{s.users?.email ?? '—'}</td>
-                            <td className="px-4 py-3"><ScoreBadge score={s.score} /></td>
-                            <td className="px-4 py-3">
-                              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${s.status === 'GRADED' ? 'bg-green-100 text-green-700' : s.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{s.status}</span>
-                            </td>
-                            <td className="px-4 py-3">{(s.tab_switches ?? 0) > 0 ? <span className="text-xs font-bold text-red-600">⚠ {s.tab_switches}x</span> : <span className="text-xs text-slate-400">0</span>}</td>
-                            <td className="px-4 py-3 text-slate-400 text-xs">{fmtDate(s.submitted_at)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+        <div className="border-b border-slate-100 mb-4 px-6 pt-4">
+          <FilterTabs
+            tabs={[
+              { id: 'STATS', label: 'Thống kê kỳ thi', icon: 'bar_chart' },
+              { id: 'ALERTS', label: 'Cảnh báo học tập', icon: 'warning' },
+            ]}
+            active={activeTab}
+            onChange={setActiveTab}
+          />
         </div>
+
+        {activeTab === 'STATS' && (
+          <div className="px-6 py-4 pb-6">
+            <div className="max-w-md">
+              <Select value={selectedExam} onChange={e => setSelectedExam(e.target.value)}>
+                <option value="">— Vui lòng chọn đề thi cần xem báo cáo —</option>
+
+                <optgroup label="✅ Đề thi Chính thức (Lấy điểm)">
+                  {allExams.filter(e => !e.title.includes('[Thi thử]')).map(e => (
+                    <option key={e.id} value={e.id}>{e.title}</option>
+                  ))}
+                </optgroup>
+
+                <optgroup label="📝 Đề thi Thử (Tự luyện)">
+                  {allExams.filter(e => e.title.includes('[Thi thử]')).map(e => (
+                    <option key={e.id} value={e.id}>{e.title.replace('[Thi thử]', '').trim()}</option>
+                  ))}
+                </optgroup>
+              </Select>
+            </div>
+
+            {selectedExam && (
+              <div className="mt-6">
+                {subLoading ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><Sk className="h-48 w-full" /><Sk className="h-48 w-full" /></div>
+                ) : submissions.length === 0 ? (
+                  <EmptyState icon="assignment" title="Chưa có sinh viên làm bài" subtitle="Không có dữ liệu thống kê cho đề thi này." />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                      <StatCard icon="group" iconBg="bg-blue-50 text-blue-600" label="Tổng số bài nộp" value={submissions.length} />
+                      <StatCard icon="grade" iconBg="bg-green-50 text-green-600" label="Điểm Trung bình" value={avgScore ?? '—'} />
+                      <StatCard icon="trending_up" iconBg="bg-orange-50 text-orange-600" label="Điểm Cao nhất" value={topScore ?? '—'} />
+                      <StatCard icon="timer" iconBg="bg-purple-50 text-purple-600" label="Điểm chuẩn (Pass)" value={selectedExamObj?.pass_score ?? '—'} />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                      <div><p className="text-sm font-bold text-slate-700 mb-3">Phân bố điểm số</p><ScoreDistChart submissions={scored} /></div>
+                      <div><p className="text-sm font-bold text-slate-700 mb-3">Tỷ lệ đạt / không đạt</p><PassFailPie submissions={scored} passScore={selectedExamObj?.pass_score ?? 5} /></div>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr>
+                            {['Sinh viên', 'Email', 'Điểm', 'Trạng thái', 'Thoát tab', 'Thời gian nộp'].map(h => (
+                              <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {submissions.map(s => (
+                            <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
+                              <td className="px-4 py-3 font-semibold text-slate-800">{s.users?.full_name ?? '—'}</td>
+                              <td className="px-4 py-3 text-slate-500">{s.users?.email ?? '—'}</td>
+                              <td className="px-4 py-3"><ScoreBadge score={s.score} /></td>
+                              <td className="px-4 py-3">
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${s.status === 'GRADED' ? 'bg-green-100 text-green-700' : s.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{s.status}</span>
+                              </td>
+                              <td className="px-4 py-3">{(s.tab_switches ?? 0) > 0 ? <span className="text-xs font-bold text-red-600">⚠ {s.tab_switches}x</span> : <span className="text-xs text-slate-400">0</span>}</td>
+                              <td className="px-4 py-3 text-slate-400 text-xs">{fmtDate(s.submitted_at)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'ALERTS' && (
+          <div className="px-6 py-4 pb-6">
+            {alertsLoading ? (
+              <div className="space-y-4">
+                <Sk className="h-16 w-full" />
+                <Sk className="h-16 w-full" />
+              </div>
+            ) : alerts.length === 0 ? (
+              <EmptyState 
+                icon="verified" 
+                title="Tuyệt vời!" 
+                subtitle="Không có sinh viên nào có kết quả học tập đáng báo động lúc này." 
+              />
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-start gap-3 border border-red-100">
+                  <span className="material-symbols-rounded text-xl">warning</span>
+                  <div>
+                    <h4 className="font-bold">Danh sách Cần Theo Dõi Đặc Biệt</h4>
+                    <p className="text-sm mt-1">Các sinh viên dưới đây có điểm trung bình dưới 5 hoặc trượt/bỏ thi từ 2 bài trở lên.</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {alerts.map(s => (
+                    <div key={s.id} className="border border-red-100 bg-white rounded-xl p-4 flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-lg">
+                          {s.full_name?.charAt(0) ?? '?'}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800">{s.full_name}</p>
+                          <p className="text-xs text-slate-500">{s.email}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-slate-400 uppercase">Điểm TB</p>
+                        <p className={`font-bold text-lg ${s.averageScore < 5 ? 'text-red-600' : 'text-orange-500'}`}>
+                          {s.averageScore}
+                        </p>
+                        <p className="text-[10px] text-red-500 font-medium">Trượt {s.lowScoreCount}/{s.totalExams} bài</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Card>
     </AppLayout>
   );

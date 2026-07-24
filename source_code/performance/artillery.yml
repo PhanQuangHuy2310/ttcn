@@ -1,0 +1,43 @@
+config:
+  target: "http://localhost:8080"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp up load"
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained high load"
+  environments:
+    production:
+      target: "https://api.myapp.com"
+      phases:
+        - duration: 300
+          arrivalRate: 100
+
+scenarios:
+  - name: "Teacher uploads PDF for AI processing"
+    weight: 2
+    flow:
+      - post:
+          url: "/api/teacher/ai/extract-questions/url"
+          json:
+            pdfUrl: "https://example.com/sample.pdf"
+            title: "Performance Test Exam"
+          headers:
+            Authorization: "Bearer MOCK_TOKEN_FOR_TESTING"
+      - think: 2
+
+  - name: "Student submits exam answers"
+    weight: 8
+    flow:
+      - post:
+          url: "/api/student/exams/submit"
+          json:
+            examId: "exam-123"
+            studentId: "student-123"
+            answers:
+              "q1": "A"
+              "q2": "B"
+          headers:
+            Authorization: "Bearer MOCK_TOKEN_FOR_TESTING"

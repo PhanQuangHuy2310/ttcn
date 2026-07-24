@@ -472,7 +472,7 @@ export const submissionsService = {
     run(
       supabase
         .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('*, exams(id, title)')
+        .select('*, exams(id, title, duration, status, allow_review, classes(name))')
         .eq('student_id', studentId)
     ),
   getPendingByTeacher: (teacherId: string) =>
@@ -659,7 +659,6 @@ export const submissionsService = {
           answers,
           status: newStatus,
           score: finalScore,
-          mcq_score: mcqScore, // Lưu điểm TN riêng (nếu cột tồn tại)
           tab_switches: tabSwitches || 0,
           submitted_at: new Date().toISOString()
         })

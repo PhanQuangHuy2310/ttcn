@@ -119,7 +119,7 @@ const EssayGrading = () => {
   }, [profile?.id]);
 
   const loadSubmissions = useCallback(async () => {
-    if (!examId) return;
+    if (!examId || examId === 'undefined') return;
     setLoading(true);
     const [qRes, subRes] = await Promise.all([
       questionsService.getByExam(examId),

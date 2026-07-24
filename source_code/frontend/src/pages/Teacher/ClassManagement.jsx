@@ -31,6 +31,7 @@ const CreateCourseModal = ({ open, onClose, onCreated, profile }) => {
     const { data, error: err } = await coursesService.create({
       ...form,
       teacher_id: profile.id,
+      grade_level: parseInt(form.grade_level) || null,
       code: form.code.trim() || `CRS-${Date.now().toString(36).toUpperCase()}`,
     });
     setSaving(false);
@@ -76,10 +77,11 @@ const CreateClassModal = ({ open, onClose, onCreated, courseId }) => {
     e.preventDefault();
     if (!form.name.trim()) { setError('Vui lòng nhập tên lớp.'); return; }
     setSaving(true);
+    const { max_students, ...restForm } = form;
     const { data, error: err } = await classesService.create({
-      ...form,
+      ...restForm,
       course_id:   courseId,
-      max_students: parseInt(form.max_students) || 50,
+      max_student: parseInt(max_students) || 50,
       code: form.code.trim() || `CLS-${Date.now().toString(36).toUpperCase()}`,
     });
     setSaving(false);

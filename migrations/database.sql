@@ -29,8 +29,8 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     CASE 
-      WHEN (NEW.raw_user_meta_data->>'is_teacher')::boolean THEN 'TEACHER'
-      ELSE 'STUDENT'
+      WHEN (NEW.raw_user_meta_data->>'is_teacher')::boolean THEN 'TEACHER'::public.user_role
+      ELSE 'STUDENT'::public.user_role
     END,
     CASE 
       WHEN (NEW.raw_user_meta_data->>'is_teacher')::boolean 

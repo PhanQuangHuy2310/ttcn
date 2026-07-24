@@ -7,9 +7,9 @@ spring:
   
   # Cấu hình Database (PostgreSQL / Supabase)
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require&prepareThreshold=0}
-    username: ${DATABASE_USERNAME:postgres.oxqeacydayefsvtsqams}
-    password: ${DATABASE_PASSWORD:DangDuy2005@}
+    url: ${DATABASE_URL:jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require&prepareThreshold=0}
+    username: ${DATABASE_USERNAME:postgres.nkapaipzdxyshqynjfri}
+    password: ${DATABASE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   
   # Cấu hình Hibernate / JPA
@@ -25,8 +25,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SUPABASE_AUTH_ISSUER:https://oxqeacydayefsvtsqams.supabase.co/auth/v1}
-          jwk-set-uri: ${SUPABASE_AUTH_JWK_SET_URI:https://oxqeacydayefsvtsqams.supabase.co/auth/v1/.well-known/jwks.json}
+          issuer-uri: ${SUPABASE_AUTH_ISSUER:https://nkapaipzdxyshqynjfri.supabase.co/auth/v1}
+          jwk-set-uri: ${SUPABASE_AUTH_JWK_SET_URI:https://nkapaipzdxyshqynjfri.supabase.co/auth/v1/.well-known/jwks.json}
 
   # Cấu hình giới hạn kích thước file upload (Dành cho việc upload tài liệu PDF)
   servlet:

@@ -10,13 +10,15 @@ import AppLayout from '../../components/AppLayout';
 import { Btn, Card, EmptyState, ErrorBanner, Sk, PageHeader, Modal, Input } from '../../components/ui';
 import { classesService } from '../../services/supabaseService';
 
-// ── Join by code modal ────────────────────────────────────────
+// ── Modal nhập mã tham gia lớp học ──────────────────────────────
+// MỤC ĐÍCH: Cho phép học viên nhập mã lớp (VD: LT01-2024) do giáo viên cung cấp để tham gia vào lớp.
 const JoinClassModal = ({ open, onClose, onJoined, studentId }) => {
   const [code,    setCode]    = useState('');
   const [joining, setJoining] = useState(false);
   const [error,   setError]   = useState(null);
   const [success, setSuccess] = useState(null);
 
+  // Xử lý sự kiện khi ấn nút "Tham gia lớp"
   const handleJoin = async e => {
     e.preventDefault();
     if (!code.trim()) { setError('Vui lòng nhập mã lớp.'); return; }
@@ -77,7 +79,9 @@ const JoinClassModal = ({ open, onClose, onJoined, studentId }) => {
   );
 };
 
-// ── Class card ────────────────────────────────────────────────
+// ── Component Thẻ hiển thị Lớp học (ClassCard) ─────────────────
+// MỤC ĐÍCH: Hiển thị thông tin cơ bản của lớp học (Tên môn, Tên GV, Mã lớp).
+// Màu sắc (gradient) được tạo ngẫu nhiên dựa trên mã ASCII của ký tự đầu tiên trong tên lớp.
 const ClassCard = ({ enrollment }) => {
   const cls    = enrollment.classes;
   const course = cls?.courses;
@@ -136,7 +140,7 @@ const ClassCard = ({ enrollment }) => {
   );
 };
 
-// ── Main page ─────────────────────────────────────────────────
+// ── Component Chính (Trang Danh sách Lớp Học) ───────────────────
 const StudentClasses = () => {
   const profile = useSelector(selectProfile);
   const [enrollments, setEnrollments] = useState([]);
@@ -144,10 +148,12 @@ const StudentClasses = () => {
   const [error,       setError]       = useState(null);
   const [joinOpen,    setJoinOpen]    = useState(false);
 
+  // ── EFFECT: Tải danh sách lớp học ────────────────────────────────
   const load = async () => {
     if (!profile?.id) return;
     setLoading(true);
     setError(null);
+    // Gọi API lấy các lớp học mà studentId này đang tham gia (trong bảng student_classes)
     const { data, error: err } = await classesService.getEnrolledByStudent(profile.id);
     if (err) setError('Không thể tải danh sách lớp học.');
     else setEnrollments(data ?? []);
