@@ -647,8 +647,8 @@ export const submissionsService = {
         newStatus = 'GRADED';
         finalScore = mcqScore;
       } else {
-        // Đề thi CÓ câu tự luận -> Lưu điểm TN tạm thời, status PENDING_ESSAY_GRADING
-        newStatus = 'PENDING_ESSAY_GRADING';
+        // Đề thi CÓ câu tự luận -> Lưu điểm TN tạm thời, status SUBMITTED (chờ GV chấm tự luận)
+        newStatus = 'SUBMITTED';
         finalScore = null; // Chưa có điểm tổng, chờ GV chấm tự luận
       }
 

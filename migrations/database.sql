@@ -225,6 +225,7 @@ CREATE TYPE entity_type AS ENUM (
   status        submission_status NOT NULL DEFAULT 'NOT_STARTED',
   score         DECIMAL(5,2),
   answers       JSONB,            -- { question_id: answer_text }
+  essay_images  JSONB,            -- { question_id: [image_urls...] }
   started_at    TIMESTAMP WITH TIME ZONE,
   submitted_at  TIMESTAMP WITH TIME ZONE,
   time_spent    INTEGER,          -- seconds
