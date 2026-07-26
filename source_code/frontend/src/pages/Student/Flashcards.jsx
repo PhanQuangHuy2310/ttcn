@@ -13,6 +13,7 @@ import {
   Btn, Modal, Input, Select, Textarea
 } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
+import { STUDENT_AI_API } from '../../constant/apiEndpoints';
 
 // ── Component: Chế độ Học (Study Mode) ────────────────────────────────────
 // MỤC ĐÍCH: Hiển thị giao diện lật thẻ toàn màn hình. Cho phép học sinh xem câu hỏi, lật xem đáp án và duyệt qua các thẻ.
@@ -154,7 +155,7 @@ const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
       formData.append('file', file);
 
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8085/api'}/student/ai/extract-flashcards`, {
+      const response = await fetch(STUDENT_AI_API.EXTRACT_FLASHCARDS, {
         method: 'POST',
         body: formData,
         headers: {
