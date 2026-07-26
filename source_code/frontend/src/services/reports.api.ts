@@ -1,5 +1,26 @@
 import { supabase } from '../lib/supabase';
 
+interface StudentUser {
+  id: string;
+  full_name?: string;
+  email?: string;
+  student_id?: string;
+  [key: string]: any;
+}
+
+interface StudentMapItem {
+  user: StudentUser;
+  submissions: any[];
+  totalScore: number;
+  lowScoreCount: number;
+}
+
+interface AlertItem extends StudentUser {
+  averageScore: number;
+  lowScoreCount: number;
+  totalExams: number;
+}
+
 export const reportsApi = {
   getStudyAlerts: async () => {
     // Get all submissions for exams taught by the current teacher
@@ -19,22 +40,25 @@ export const reportsApi = {
     }
 
     // Process alerts
-    const studentMap = {};
+    const studentMap: Record<string, StudentMapItem> = {};
 
-    data.forEach(sub => {
-      const studentId = sub.users?.id;
+    (data || []).forEach((sub: any) => {
+      const user: StudentUser = Array.isArray(sub.users) ? sub.users[0] : sub.users;
+      const studentId = user?.id;
       if (!studentId) return;
       
       if (!studentMap[studentId]) {
         studentMap[studentId] = {
-          user: sub.users,
+          user,
           submissions: [],
           totalScore: 0,
           lowScoreCount: 0
         };
       }
       
-      const score = parseFloat(sub.score);
+      const score = typeof sub.score === 'number' ? sub.score : parseFloat(sub.score || '0');
+      if (isNaN(score)) return;
+
       studentMap[studentId].submissions.push(sub);
       studentMap[studentId].totalScore += score;
       if (score < 5) {
@@ -43,16 +67,16 @@ export const reportsApi = {
     });
 
     // Filter students at risk
-    const alerts = [];
-    Object.values(studentMap).forEach(student => {
+    const alerts: AlertItem[] = [];
+    Object.values(studentMap).forEach((student: StudentMapItem) => {
       const count = student.submissions.length;
-      const avg = count > 0 ? (student.totalScore / count).toFixed(1) : 0;
+      const avgNum = count > 0 ? Number((student.totalScore / count).toFixed(1)) : 0;
       
       // Alert criteria: average < 5 OR 2 or more exams < 5
-      if (avg < 5 || student.lowScoreCount >= 2) {
+      if (avgNum < 5 || student.lowScoreCount >= 2) {
         alerts.push({
           ...student.user,
-          averageScore: parseFloat(avg),
+          averageScore: avgNum,
           lowScoreCount: student.lowScoreCount,
           totalExams: count
         });
