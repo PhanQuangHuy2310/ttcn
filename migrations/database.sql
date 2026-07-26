@@ -822,3 +822,25 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 ALTER TABLE notifications REPLICA IDENTITY FULL;
 
+-- RLS policies for notifications, student_classes, audit_logs, exam_matrices
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own notifications" ON public.notifications FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can update own notifications" ON public.notifications FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Authenticated users can insert notifications" ON public.notifications FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Users can delete own notifications" ON public.notifications FOR DELETE USING (user_id = auth.uid());
+
+ALTER TABLE public.student_classes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Students insert own enrollment" ON public.student_classes FOR INSERT WITH CHECK (student_id = auth.uid());
+CREATE POLICY "Teachers manage class enrollments" ON public.student_classes FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.classes cl
+    JOIN public.courses c ON c.id = cl.course_id
+    WHERE cl.id = public.student_classes.class_id AND c.teacher_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Authenticated users can insert audit logs" ON public.audit_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+ALTER TABLE public.exam_matrices ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Teachers manage own exam matrices" ON public.exam_matrices FOR ALL USING (created_by = auth.uid());
+CREATE POLICY "Authenticated users view exam matrices" ON public.exam_matrices FOR SELECT USING (true);
