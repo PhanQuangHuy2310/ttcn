@@ -38,7 +38,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://ttcn-backend.onrender.com/api # Liên kết động tới Backend
+        value: https://ttcn-fdmq.onrender.com/api # Liên kết động tới Backend
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY

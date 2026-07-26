@@ -30,7 +30,7 @@ export const SUPABASE_TABLES = {
 /**
  * Tự động chọn URL Backend:
  * - Khi chạy ở localhost (npm run dev): dùng http://localhost:8085
- * - Khi chạy trên web thật (như Render: *.onrender.com): tự động chọn https://ttcn-backend.onrender.com
+ * - Khi chạy trên web thật (như Render: *.onrender.com): tự động chọn https://ttcn-fdmq.onrender.com
  */
 const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_URL;
@@ -40,7 +40,7 @@ const getApiBaseUrl = (): string => {
     window.location.hostname !== '127.0.0.1' &&
     (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))
   ) {
-    return 'https://ttcn-backend.onrender.com';
+    return 'https://ttcn-fdmq.onrender.com';
   }
   return (envUrl ?? 'http://localhost:8085').replace(/\/api$/, '');
 };
