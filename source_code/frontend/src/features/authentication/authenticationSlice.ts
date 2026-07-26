@@ -92,6 +92,9 @@ export const restoreSessionThunk = createAsyncThunk(
     // Lấy phiên làm việc hiện tại
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !session?.user) {
+      if (sessionError) {
+        await supabase.auth.signOut().catch(() => {});
+      }
       return rejectWithValue('Phiên làm việc không tồn tại hoặc đã hết hạn.');
     }
 
@@ -103,6 +106,7 @@ export const restoreSessionThunk = createAsyncThunk(
       .single();
 
     if (profileError || !profile) {
+      await supabase.auth.signOut().catch(() => {});
       return rejectWithValue('Hồ sơ người dùng không tìm thấy');
     }
 
