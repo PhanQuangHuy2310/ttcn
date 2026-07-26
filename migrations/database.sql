@@ -428,10 +428,16 @@ CREATE POLICY "Teachers view own logs"
 
 ALTER TABLE public.flashcards      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.flashcard_sets  ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone enrolled can view flashcards"
+CREATE POLICY "Anyone enrolled can view flashcard sets"
   ON public.flashcard_sets FOR SELECT USING (true);
 CREATE POLICY "Creators manage their sets"
   ON public.flashcard_sets FOR ALL USING (created_by = auth.uid());
+CREATE POLICY "Anyone can view flashcards"
+  ON public.flashcards FOR SELECT USING (true);
+CREATE POLICY "Creators manage their flashcards"
+  ON public.flashcards FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.flashcard_sets fs WHERE fs.id = public.flashcards.set_id AND fs.created_by = auth.uid())
+  );
 
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins manage settings"

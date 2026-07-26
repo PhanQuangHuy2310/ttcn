@@ -199,9 +199,8 @@ const GenerateFlashcardsModal = ({ open, onClose, profile, onSaved }) => {
       // 2. Save Cards
       const insertPayload = extractedCards.map((c, idx) => ({
         set_id: newSet.id,
-        front_text: c.frontText || c.front || '',
-        back_text: c.backText || c.back || '',
-        hint: c.hint || '',
+        front_text: c.frontText || c.front || c.question || 'Câu hỏi',
+        back_text: c.backText || c.back || c.answer || 'Đáp án',
         order: idx + 1
       }));
 
@@ -394,6 +393,18 @@ const Flashcards = () => {
     if (data?.length > 0) setStudySet({ set, cards: data });
   };
 
+  const handleDeleteSet = async (e, setId) => {
+    e.stopPropagation();
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bộ Flashcard này không?')) return;
+    try {
+      const { error: err } = await supabase.from('flashcard_sets').delete().eq('id', setId);
+      if (err) throw err;
+      setSets(prev => prev.filter(s => s.id !== setId));
+    } catch (err) {
+      setError('Không thể xóa bộ flashcard: ' + err.message);
+    }
+  };
+
   return (
     <AppLayout role="STUDENT">
       <PageHeader
@@ -423,7 +434,19 @@ const Flashcards = () => {
                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
                       <span className="material-symbols-outlined text-indigo-600 group-hover:text-white transition-colors">style</span>
                     </div>
-                    <span className="text-xs font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full">{cardCount} thẻ</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full">{cardCount} thẻ</span>
+                      {set.created_by === profile?.id && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSet(e, set.id)}
+                          title="Xóa bộ thẻ này"
+                          className="p-1.5 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <h3 className="font-bold text-slate-800 text-lg mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">{set.title}</h3>
                   {set.description && <p className="text-sm text-slate-500 mb-4 line-clamp-2 leading-relaxed flex-1">{set.description}</p>}
