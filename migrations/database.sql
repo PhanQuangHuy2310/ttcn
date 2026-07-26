@@ -123,8 +123,11 @@ CREATE TABLE public.exams (
 CREATE TABLE public.questions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     exam_id UUID REFERENCES public.exams(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES public.courses(id) ON DELETE SET NULL,
+    source_material_id UUID,
     content TEXT NOT NULL,
     type question_type NOT NULL,
+    difficulty TEXT DEFAULT 'MEDIUM',
     points DECIMAL(5,2) DEFAULT 1.0,
     options JSONB, -- For MCQ: [{"id": 1, "text": "..."}, ...]
     correct_answer TEXT, -- Index or text
