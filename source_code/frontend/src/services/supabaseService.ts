@@ -472,8 +472,9 @@ export const submissionsService = {
     run(
       supabase
         .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('*, exams(id, title, duration, status, allow_review, classes(name))')
+        .select('*, exams(id, title, duration, status, allow_review, classes(name)), users(id, full_name, email)')
         .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
     ),
   getPendingByTeacher: (teacherId: string) =>
     run(
@@ -484,6 +485,8 @@ export const submissionsService = {
         status,
         score,
         submitted_at,
+        created_at,
+        users(id, full_name, email),
         exams!inner(
           title,
           courses!inner(
@@ -493,14 +496,15 @@ export const submissionsService = {
       `)
         .eq('status', 'SUBMITTED')
         .eq('exams.courses.teacher_id', teacherId)
-        .order('submitted_at', { ascending: false })
+        .order('created_at', { ascending: false })
     ),
   getByExam: (examId: string) =>
     run(
       supabase
         .from(SUPABASE_TABLES.SUBMISSIONS)
-        .select('*')
+        .select('*, users(id, full_name, email), exams(id, title, duration)')
         .eq('exam_id', examId)
+        .order('created_at', { ascending: false })
     ),
 
   studentStats: async (studentId: string) => {

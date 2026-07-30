@@ -249,25 +249,32 @@ const Statistics = () => {
                 </thead>
                 <tbody>
                   {[...submissions]
-                    .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
+                    .sort((a, b) => new Date(b.submitted_at || b.created_at || 0) - new Date(a.submitted_at || a.created_at || 0))
                     .slice(0, 10)
-                    .map(s => (
-                      <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
-                        <td className="px-6 py-3.5 font-medium text-slate-800">{s.exams?.title ?? 'Bài thi'}</td>
-                        <td className="px-6 py-3.5"><ScoreBadge score={s.score} /></td>
-                        <td className="px-6 py-3.5">
-                          {s.status === 'GRADED' ? (
-                            <span className="text-[10px] font-bold px-2 py-1 bg-green-100 text-green-700 rounded-md">Đã chấm tự luận</span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-md">Chấm tự động</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-3.5 text-slate-600 text-xs max-w-[250px] truncate" title={s.teacher_comment}>
-                          {s.teacher_comment ? `💬 ${s.teacher_comment}` : '—'}
-                        </td>
-                        <td className="px-6 py-3.5 text-slate-400 text-xs">{fmtDate(s.submitted_at)}</td>
-                      </tr>
-                    ))
+                    .map(s => {
+                      const exam = Array.isArray(s.exams) ? s.exams[0] : s.exams;
+                      const title = exam?.title || 'Bài thi';
+                      const subTime = s.submitted_at || s.created_at || s.started_at;
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
+                          <td className="px-6 py-3.5 font-medium text-slate-800">{title}</td>
+                          <td className="px-6 py-3.5"><ScoreBadge score={s.score} /></td>
+                          <td className="px-6 py-3.5">
+                            {s.status === 'GRADED' ? (
+                              <span className="text-[10px] font-bold px-2 py-1 bg-green-100 text-green-700 rounded-md">Đã chấm</span>
+                            ) : s.status === 'PENDING_ESSAY_GRADING' ? (
+                              <span className="text-[10px] font-bold px-2 py-1 bg-amber-100 text-amber-700 rounded-md">Chờ chấm TL</span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded-md">Đã nộp</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-3.5 text-slate-600 text-xs max-w-[250px] truncate" title={s.teacher_comment}>
+                            {s.teacher_comment ? `💬 ${s.teacher_comment}` : '—'}
+                          </td>
+                          <td className="px-6 py-3.5 text-slate-400 text-xs">{fmtDate(subTime)}</td>
+                        </tr>
+                      );
+                    })
                   }
                 </tbody>
               </table>

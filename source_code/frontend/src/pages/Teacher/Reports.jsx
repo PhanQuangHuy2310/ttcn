@@ -187,18 +187,29 @@ const Reports = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {submissions.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
-                              <td className="px-4 py-3 font-semibold text-slate-800">{s.users?.full_name ?? '—'}</td>
-                              <td className="px-4 py-3 text-slate-500">{s.users?.email ?? '—'}</td>
-                              <td className="px-4 py-3"><ScoreBadge score={s.score} /></td>
-                              <td className="px-4 py-3">
-                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${s.status === 'GRADED' ? 'bg-green-100 text-green-700' : s.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{s.status}</span>
-                              </td>
-                              <td className="px-4 py-3">{(s.tab_switches ?? 0) > 0 ? <span className="text-xs font-bold text-red-600">⚠ {s.tab_switches}x</span> : <span className="text-xs text-slate-400">0</span>}</td>
-                              <td className="px-4 py-3 text-slate-400 text-xs">{fmtDate(s.submitted_at)}</td>
-                            </tr>
-                          ))}
+                          {submissions.map(s => {
+                            const user = Array.isArray(s.users) ? s.users[0] : s.users;
+                            const fullName = user?.full_name || (user?.email ? user.email.split('@')[0] : '—');
+                            const email = user?.email || '—';
+                            const subTime = s.submitted_at || s.created_at || s.started_at;
+                            const statusLabel =
+                              s.status === 'GRADED' ? 'Đã chấm' :
+                              s.status === 'SUBMITTED' ? 'Đã nộp' :
+                              s.status === 'PENDING_ESSAY_GRADING' ? 'Chờ chấm TL' :
+                              s.status === 'IN_PROGRESS' ? 'Đang làm' : (s.status || '—');
+                            return (
+                              <tr key={s.id} className="hover:bg-slate-50/60 transition-colors border-b border-slate-50">
+                                <td className="px-4 py-3 font-semibold text-slate-800">{fullName}</td>
+                                <td className="px-4 py-3 text-slate-500">{email}</td>
+                                <td className="px-4 py-3"><ScoreBadge score={s.score} /></td>
+                                <td className="px-4 py-3">
+                                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${s.status === 'GRADED' ? 'bg-green-100 text-green-700' : s.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : s.status === 'PENDING_ESSAY_GRADING' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{statusLabel}</span>
+                                </td>
+                                <td className="px-4 py-3">{(s.tab_switches ?? 0) > 0 ? <span className="text-xs font-bold text-red-600">⚠ {s.tab_switches} lần</span> : <span className="text-xs text-slate-400">0</span>}</td>
+                                <td className="px-4 py-3 text-slate-400 text-xs">{fmtDate(subTime)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

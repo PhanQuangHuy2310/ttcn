@@ -141,7 +141,7 @@ const ExamHistory = () => {
                     </div>
                   </div>
                   <div className="col-span-2 text-xs text-slate-500 truncate">{sub.exams?.classes?.name ?? '—'}</div>
-                  <div className="col-span-2 text-xs text-slate-400">{fmtDateTime(sub.submitted_at)}</div>
+                  <div className="col-span-2 text-xs text-slate-400">{fmtDateTime(sub.submitted_at || sub.created_at || sub.started_at)}</div>
                   <div className="col-span-1"><ScoreBadge score={sub.score} /></div>
                   <div className="col-span-1"><StatusBadge status={sub.status} /></div>
                   <div className="col-span-1 flex justify-end">

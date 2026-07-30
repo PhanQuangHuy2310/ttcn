@@ -105,8 +105,8 @@ const TeacherDashboard = () => {
                       <span className="material-symbols-outlined text-amber-600 text-base">rate_review</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">Nộp lúc {fmtDateTime(sub.submitted_at)}</p>
-                      <p className="text-xs text-slate-400">Từ đề thi ID: {sub.exam_id?.slice(0, 8)}…</p>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{sub.users?.full_name || (sub.users?.email ? sub.users.email.split('@')[0] : 'Học viên')} — {sub.exams?.title || 'Bài thi'}</p>
+                      <p className="text-xs text-slate-400">Nộp lúc: {fmtDateTime(sub.submitted_at || sub.created_at || sub.started_at)}</p>
                     </div>
                     <Btn size="xs" variant="warning" icon="grading" onClick={() => navigate(`/teacher/essay-grading?examId=${sub.exam_id}`)}>Chấm</Btn>
                   </div>
