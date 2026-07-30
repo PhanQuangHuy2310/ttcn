@@ -187,13 +187,13 @@ const StudentClassDetail = () => {
 
         } else if (tab === 'students') {
           // Bước A: Tải danh sách toàn bộ học sinh đăng ký trong lớp học này
-          const { data: studentsData, error: studentsErr } = await supabase
+          const { data: studentsData } = await supabase
             .from('student_classes')
             .select(`
               id,
               student_id,
               enrolled_at,
-              users!student_classes_student_id_fkey (
+              users (
                 id,
                 full_name,
                 email
@@ -201,8 +201,37 @@ const StudentClassDetail = () => {
             `)
             .eq('class_id', classId)
             .order('enrolled_at', { ascending: true });
-          if (studentsErr) throw studentsErr;
-          if (isMounted) setStudents(studentsData ?? []);
+
+          const rawStudents = studentsData ?? [];
+          const studentIds = rawStudents.map(s => s.student_id).filter(Boolean);
+
+          let userMap = {};
+          if (studentIds.length > 0) {
+            const { data: usersData } = await supabase
+              .from('users')
+              .select('id, full_name, email, student_id')
+              .in('id', studentIds);
+
+            (usersData ?? []).forEach(u => {
+              userMap[u.id] = u;
+              if (u.student_id) userMap[u.student_id] = u;
+            });
+          }
+
+          const enrichedStudents = rawStudents.map(sc => {
+            const rawUser = Array.isArray(sc.users) ? sc.users[0] : sc.users;
+            const mappedUser = userMap[sc.student_id];
+            return {
+              ...sc,
+              users: {
+                id: rawUser?.id || mappedUser?.id || sc.student_id,
+                full_name: rawUser?.full_name || mappedUser?.full_name || sc.student_name || (rawUser?.email || mappedUser?.email ? (rawUser?.email || mappedUser?.email).split('@')[0] : 'Học viên'),
+                email: rawUser?.email || mappedUser?.email || '—'
+              }
+            };
+          });
+
+          if (isMounted) setStudents(enrichedStudents);
         }
       } catch (err) {
         console.error(`Lỗi tải dữ liệu cho tab ${tab}:`, err);
@@ -510,9 +539,9 @@ const StudentClassDetail = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {students.map((sc, idx) => {
-                          const user = sc.users;
-                          const name = user?.full_name ?? '—';
-                          const email = user?.email ?? '—';
+                          const user = Array.isArray(sc.users) ? sc.users[0] : sc.users;
+                          const email = user?.email || '—';
+                          const name = user?.full_name || sc.student_name || (email !== '—' ? email.split('@')[0] : 'Học viên');
 
                           return (
                             <tr key={sc.id} className="hover:bg-slate-50/30 transition-colors">

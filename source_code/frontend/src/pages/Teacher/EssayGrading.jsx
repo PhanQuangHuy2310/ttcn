@@ -57,17 +57,17 @@ const SubmissionGradeCard = ({ submission, questions, onGraded }) => {
   };
 
   const student = submission.users;
-  const essayQuestions = questions.filter(q => q.type === 'ESSAY');
+  const essayQuestions = (questions ?? []).filter(q => q.type === 'ESSAY');
   const answers = submission.answers ?? {};
 
   return (
     <Card className="overflow-visible print:shadow-none print:border-slate-300 mb-6">
       <div className="px-6 py-4 border-b flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-3">
-          <Avatar name={student?.full_name ?? 'Sinh viên'} size="md" />
+          <Avatar name={student?.full_name || (student?.email ? student.email.split('@')[0] : 'Học viên')} size="md" />
           <div>
-            <p className="font-bold text-slate-800">{student?.full_name}</p>
-            <p className="text-xs text-slate-500">Nộp lúc: {fmtDate(submission.submitted_at)}</p>
+            <p className="font-bold text-slate-800">{student?.full_name || (student?.email ? student.email.split('@')[0] : 'Học viên')}</p>
+            <p className="text-xs text-slate-500">Nộp lúc: {fmtDate(submission.submitted_at ?? submission.created_at ?? new Date().toISOString())}</p>
           </div>
         </div>
         {isGraded && <span className="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1"><span className="material-symbols-outlined text-sm">check_circle</span> Đã chấm</span>}
@@ -123,7 +123,7 @@ const EssayGrading = () => {
     setLoading(true);
     const [qRes, subRes] = await Promise.all([
       questionsService.getByExam(examId),
-      supabase.from('submissions').select('*, users!inner(id, full_name, email)').eq('exam_id', examId).order('submitted_at', { ascending: false })
+      supabase.from('submissions').select('*, users (id, full_name, email)').eq('exam_id', examId).order('submitted_at', { ascending: false })
     ]);
     setQuestions(qRes.data ?? []);
     setSubmissions(subRes.data ?? []);
@@ -137,8 +137,8 @@ const EssayGrading = () => {
     setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, score, teacher_comment: comment, status: 'GRADED' } : s));
   };
 
-  const essayQuestions = questions.filter(q => q.type === 'ESSAY');
-  const filtered = filter === 'PENDING' ? submissions.filter(s => s.status !== 'GRADED' && s.status !== 'NOT_STARTED' && s.status !== 'IN_PROGRESS') : submissions;
+  const essayQuestions = (questions ?? []).filter(q => q.type === 'ESSAY');
+  const filtered = filter === 'PENDING' ? (submissions ?? []).filter(s => s.status !== 'GRADED' && s.status !== 'NOT_STARTED' && s.status !== 'IN_PROGRESS') : (submissions ?? []);
 
   return (
     <AppLayout role="TEACHER">
@@ -146,14 +146,14 @@ const EssayGrading = () => {
       <div className="max-w-xl mb-6">
         <Select value={examId || ''} onChange={e => setParams(e.target.value ? { examId: e.target.value } : {})}>
           <option value="">-- Chọn đề thi --</option>
-          {allExams.map(ex => <option key={ex.id} value={ex.id}>{ex.title}</option>)}
+          {allExams.map(ex => <option key={ex.id} value={ex.id}>{ex.title ?? 'Đề thi không tên'}</option>)}
         </Select>
       </div>
 
       {examId && !loading && (
         <div className="flex gap-2 mb-6">
-          <button onClick={() => setFilter('PENDING')} className={`px-4 py-2 rounded-xl text-sm font-bold ${filter === 'PENDING' ? 'bg-primary text-white' : 'bg-white'}`}>Chờ chấm ({submissions.filter(s => s.status !== 'GRADED').length})</button>
-          <button onClick={() => setFilter('ALL')} className={`px-4 py-2 rounded-xl text-sm font-bold ${filter === 'ALL' ? 'bg-primary text-white' : 'bg-white'}`}>Tất cả ({submissions.length})</button>
+          <button onClick={() => setFilter('PENDING')} className={`px-4 py-2 rounded-xl text-sm font-bold ${filter === 'PENDING' ? 'bg-primary text-white' : 'bg-white'}`}>Chờ chấm ({(submissions ?? []).filter(s => s.status !== 'GRADED').length})</button>
+          <button onClick={() => setFilter('ALL')} className={`px-4 py-2 rounded-xl text-sm font-bold ${filter === 'ALL' ? 'bg-primary text-white' : 'bg-white'}`}>Tất cả ({(submissions ?? []).length})</button>
         </div>
       )}
 

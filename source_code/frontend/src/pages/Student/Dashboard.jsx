@@ -154,7 +154,8 @@ const StudentDashboard = () => {
                       const daySubmissions = submissions.filter(s => {
                         const d = new Date();
                         d.setDate(d.getDate() - (29 - i));
-                        return s.submitted_at.startsWith(d.toISOString().split('T')[0]);
+                        const dateStr = s?.submitted_at || s?.created_at;
+                        return dateStr ? dateStr.startsWith(d.toISOString().split('T')[0]) : false;
                       }).length;
                       
                       const intensity = daySubmissions === 0 ? 'bg-slate-100' : 

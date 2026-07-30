@@ -16,6 +16,7 @@ import {
   coursesService, classesService, lessonsService,
   studentClassesService,
 } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabase';
 
 // ── Create Course Modal ───────────────────────────────────────
 const CreateCourseModal = ({ open, onClose, onCreated, profile }) => {
@@ -223,8 +224,45 @@ const CourseDetail = ({ course, onRefresh }) => {
   useEffect(() => {
     if (!course?.id) return;
     setLoading(true);
-    classesService.getByCourse(course.id).then(({ data }) => {
-      setClasses(data ?? []);
+    classesService.getByCourse(course.id).then(async ({ data }) => {
+      const rawClasses = data ?? [];
+
+      const studentIds = [];
+      rawClasses.forEach(cls => {
+        (cls.student_classes ?? []).forEach(sc => {
+          if (sc.student_id) studentIds.push(sc.student_id);
+        });
+      });
+
+      let userMap = {};
+      if (studentIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('id, full_name, email, student_id')
+          .in('id', studentIds);
+
+        (usersData ?? []).forEach(u => {
+          userMap[u.id] = u;
+          if (u.student_id) userMap[u.student_id] = u;
+        });
+      }
+
+      const enrichedClasses = rawClasses.map(cls => ({
+        ...cls,
+        student_classes: (cls.student_classes ?? []).map(sc => {
+          const rawUser = Array.isArray(sc.users) ? sc.users[0] : sc.users;
+          const mappedUser = userMap[sc.student_id];
+          return {
+            ...sc,
+            users: {
+              full_name: rawUser?.full_name || mappedUser?.full_name || sc.student_name || (rawUser?.email || mappedUser?.email ? (rawUser?.email || mappedUser?.email).split('@')[0] : 'Học viên'),
+              email: rawUser?.email || mappedUser?.email || '—'
+            }
+          };
+        })
+      }));
+
+      setClasses(enrichedClasses);
       setLoading(false);
     });
   }, [course?.id]);
@@ -315,22 +353,27 @@ const CourseDetail = ({ course, onRefresh }) => {
                       {/* Student list */}
                       {students.length > 0 ? (
                         <div className="divide-y divide-slate-50">
-                          {students.map(sc => (
-                            <div key={sc.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50 transition-colors group">
-                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                                {(sc.users?.full_name ?? 'S').charAt(0).toUpperCase()}
+                          {students.map(sc => {
+                            const user = Array.isArray(sc.users) ? sc.users[0] : sc.users;
+                            const fullName = user?.full_name || sc.student_name || (user?.email ? user.email.split('@')[0] : 'Học viên');
+                            const email = user?.email || '—';
+                            return (
+                              <div key={sc.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50 transition-colors group">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                                  {fullName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-slate-800 truncate">{fullName}</p>
+                                  <p className="text-xs text-slate-400">{email}</p>
+                                </div>
+                                <IconBtn
+                                  icon="person_remove" label="Xóa khỏi lớp" variant="danger" size="sm"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => removeStudent(sc.student_id, cls.id)}
+                                />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-800 truncate">{sc.users?.full_name ?? '—'}</p>
-                                <p className="text-xs text-slate-400">{sc.users?.email ?? '—'}</p>
-                              </div>
-                              <IconBtn
-                                icon="person_remove" label="Xóa khỏi lớp" variant="danger" size="sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => removeStudent(sc.student_id, cls.id)}
-                              />
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="px-5 py-4 text-center text-xs text-slate-400">

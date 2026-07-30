@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { selectProfile } from '../../features/authentication/authenticationSlice';
 import AppLayout from '../../components/AppLayout';
-import { StatCard, Card, CardHeader, EmptyState, ErrorBanner, Sk, PageHeader, ScoreBadge, fmtDate, Select } from '../../components/ui';
+import { StatCard, Card, CardHeader, EmptyState, ErrorBanner, Sk, PageHeader, ScoreBadge, fmtDate, Select, FilterTabs } from '../../components/ui';
 import { coursesService, submissionsService, examsService } from '../../services/supabaseService';
 import { reportsApi } from '../../services/reports.api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -128,11 +128,11 @@ const Reports = () => {
       <Card className="mb-6">
         <div className="border-b border-slate-100 mb-4 px-6 pt-4">
           <FilterTabs
-            tabs={[
-              { id: 'STATS', label: 'Thống kê kỳ thi', icon: 'bar_chart' },
-              { id: 'ALERTS', label: 'Cảnh báo học tập', icon: 'warning' },
+            options={[
+              { value: 'STATS', label: 'Thống kê kỳ thi' },
+              { value: 'ALERTS', label: 'Cảnh báo học tập' },
             ]}
-            active={activeTab}
+            value={activeTab}
             onChange={setActiveTab}
           />
         </div>
@@ -144,14 +144,14 @@ const Reports = () => {
                 <option value="">— Vui lòng chọn đề thi cần xem báo cáo —</option>
 
                 <optgroup label="✅ Đề thi Chính thức (Lấy điểm)">
-                  {allExams.filter(e => !e.title.includes('[Thi thử]')).map(e => (
-                    <option key={e.id} value={e.id}>{e.title}</option>
+                  {allExams.filter(e => !(e.title ?? '').includes('[Thi thử]')).map(e => (
+                    <option key={e.id} value={e.id}>{e.title ?? 'Đề thi'}</option>
                   ))}
                 </optgroup>
 
                 <optgroup label="📝 Đề thi Thử (Tự luyện)">
-                  {allExams.filter(e => e.title.includes('[Thi thử]')).map(e => (
-                    <option key={e.id} value={e.id}>{e.title.replace('[Thi thử]', '').trim()}</option>
+                  {allExams.filter(e => (e.title ?? '').includes('[Thi thử]')).map(e => (
+                    <option key={e.id} value={e.id}>{(e.title ?? '').replace('[Thi thử]', '').trim()}</option>
                   ))}
                 </optgroup>
               </Select>

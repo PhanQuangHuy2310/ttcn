@@ -124,7 +124,8 @@ const TeacherDashboard = () => {
             ) : (
               <div className="divide-y divide-slate-50">
                 {exams.map(exam => {
-                  const isMock = exam.title.includes('[Thi thử]');
+                  const titleStr = exam.title ?? '';
+                  const isMock = titleStr.includes('[Thi thử]');
                   return (
                     <div key={exam.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/60 transition-colors">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isMock ? 'bg-orange-50 text-orange-500' : 'bg-purple-50 text-purple-600'}`}>
@@ -133,7 +134,7 @@ const TeacherDashboard = () => {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800 truncate">
                           {isMock ? <span className="text-orange-500 mr-1.5">[Thi Thử]</span> : null}
-                          {exam.title.replace('[Thi thử]', '').trim()}
+                          {titleStr.replace('[Thi thử]', '').trim()}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">{exam.duration} phút · Khóa học: {exam.courses?.name ?? '—'}</p>
                       </div>

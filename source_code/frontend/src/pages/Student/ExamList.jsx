@@ -33,7 +33,8 @@ const ExamList = () => {
       } else {
         // LỌC: Chỉ lấy bài THI CHÍNH THỨC (không chứa từ Thi thử) VÀ PHẢI ĐANG MỞ (ACTIVE)
         const officialExams = (data ?? []).filter(exam => {
-          const isMock = exam.title.toLowerCase().includes('thi thử') || exam.title.toLowerCase().includes('luyện tập');
+          const titleLower = (exam.title ?? '').toLowerCase();
+          const isMock = titleLower.includes('thi thử') || titleLower.includes('luyện tập');
           // YÊU CẦU 4: Bổ sung logic ẩn ngay lập tức nếu đề thi đã vượt quá giờ đóng (end_time)
           const isExpired = exam.end_time && new Date(exam.end_time).getTime() < Date.now();
           return !isMock && exam.status === 'ACTIVE' && !isExpired;

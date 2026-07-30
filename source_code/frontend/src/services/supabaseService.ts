@@ -223,7 +223,7 @@ export const classesService = {
         student_id,
         enrolled_at,
 
-        users!student_classes_student_id_fkey (
+        users (
           id,
           full_name,
           email,
@@ -966,7 +966,7 @@ export const teacherClassesService = {
         .select(`
           id,
           student_id,
-          students!inner(
+          users(
             id,
             full_name,
             email,

@@ -30,7 +30,7 @@ const MockExamCard = ({ exam, submission, onStart }) => {
           </div>
         </div>
         <h3 className="font-bold text-slate-800 text-lg group-hover:text-orange-600 transition-colors line-clamp-2 mb-2 flex-1">
-          {exam.title.replace('[Thi thử]', '').trim()}
+          {(exam.title ?? '').replace('[Thi thử]', '').trim()}
         </h3>
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-5 font-medium">
           <span className="material-symbols-outlined text-sm">schedule</span> {fmtDuration(exam.duration)} làm bài
@@ -81,7 +81,7 @@ const MockExams = () => {
       if (examRes.error) { setError('Không thể tải danh sách đề thi.'); setLoading(false); return; }
 
       // LỌC: Chỉ lấy bài do giáo viên gán nhãn có chữ "[Thi thử]" VÀ trạng thái phải đang ACTIVE
-      const mockExams = (examRes.data ?? []).filter(e => e.title.includes('[Thi thử]') && e.status === 'ACTIVE');
+      const mockExams = (examRes.data ?? []).filter(e => (e.title ?? '').includes('[Thi thử]') && e.status === 'ACTIVE');
 
       setExams(mockExams);
       setSubmissions(subRes.data ?? []);

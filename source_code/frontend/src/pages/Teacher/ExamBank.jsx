@@ -323,7 +323,7 @@ const ExamBank = () => {
 
   const filtered = exams.filter(e => {
     const matchFilter = filter === 'ALL' || e.status === filter;
-    const matchSearch = !search || e.title?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || (e.title ?? '').toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
@@ -340,7 +340,7 @@ const ExamBank = () => {
       const { data: students } = await supabase.from('student_classes').select('student_id').eq('class_id', targetExam.class_id);
       if (students && students.length > 0) {
         let notifs = [];
-        const isMock = targetExam.title.includes('[Thi thử]');
+        const isMock = (targetExam.title ?? '').includes('[Thi thử]');
 
         if (newStatus === 'ACTIVE') {
           notifs = students.map(s => ({
