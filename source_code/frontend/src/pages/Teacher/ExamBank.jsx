@@ -13,6 +13,8 @@ import { Btn, IconBtn, Card, EmptyState, ErrorBanner, StatusBadge, SkRow, PageHe
 import { examsService, examsAdminService, coursesService, examMatricesService } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { TEACHER_AI_API } from '../../constant/apiEndpoints';
+import { auditLog, AUDIT_ACTIONS } from '../../utils/auditLog';
+import { sendNotification } from '../../utils/notification';
 
 const STATUS_OPTS = [{ value: 'ALL', label: 'Tất cả' }, { value: 'DRAFT', label: 'Nháp' }, { value: 'ACTIVE', label: 'Đang thi' }, { value: 'ENDED', label: 'Đã đóng' }];
 const NEXT_STATUS = { DRAFT: 'ACTIVE', ACTIVE: 'ENDED', ENDED: null };
@@ -175,6 +177,9 @@ const CreateExamModal = ({ open, onClose, onCreated, profile }) => {
 
         await supabase.from('questions').insert(insertPayload);
       }
+
+      auditLog(profile?.id, AUDIT_ACTIONS.EXAM_CREATE, `Tạo đề thi mới: ${form.title}`, { course_id: form.course_id });
+      sendNotification(profile?.id, 'Tạo đề thi thành công', `Đề thi "${form.title}" đã được lưu vào Ngân hàng đề thi.`, 'EXAM_OPEN');
 
       onCreated?.();
       onClose();

@@ -12,6 +12,8 @@ import { examsService, questionsService, submissionsService } from '../../servic
 import { supabase } from '../../lib/supabase';
 import { ErrorBanner, Sk, Input, Btn } from '../../components/ui';
 import { useDebounce } from '../../hooks/useDebounce';
+import { auditLog, AUDIT_ACTIONS } from '../../utils/auditLog';
+import { sendNotification } from '../../utils/notification';
 
 // ── LocalStorage helpers ──────────────────────────────────────
 // MỤC ĐÍCH: Lưu trữ tạm thời đáp án của sinh viên xuống LocalStorage của trình duyệt.
@@ -400,6 +402,10 @@ const ExamTaking = () => {
 
     const { data, error: err } = await submissionsService.submitWithScore(examId, profile.id, answersRef.current, cheatWarnings);
     if (err) { setError('Nộp bài thất bại. Vui lòng thử lại.'); setSubmitting(false); return; }
+
+    // Ghi nhật ký bảo mật và gửi thông báo xác nhận cho sinh viên
+    auditLog(profile.id, AUDIT_ACTIONS.EXAM_SUBMIT, `Nộp bài thi: ${exam?.title || examId}`, { exam_id: examId, score: data?.mcqScore });
+    sendNotification(profile.id, 'Nộp bài thi thành công', `Bạn đã hoàn thành bài thi "${exam?.title || 'Đề thi'}".`, 'EXAM_OPEN', '/student/history');
 
     // Xóa localStorage sau khi nộp thành công
     clearLS(examId);

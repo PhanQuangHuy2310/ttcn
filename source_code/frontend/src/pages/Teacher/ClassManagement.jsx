@@ -17,6 +17,8 @@ import {
   studentClassesService,
 } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabase';
+import { auditLog, AUDIT_ACTIONS } from '../../utils/auditLog';
+import { sendNotification } from '../../utils/notification';
 
 // ── Create Course Modal ───────────────────────────────────────
 const CreateCourseModal = ({ open, onClose, onCreated, profile }) => {
@@ -37,6 +39,8 @@ const CreateCourseModal = ({ open, onClose, onCreated, profile }) => {
     });
     setSaving(false);
     if (err) { setError('Không thể tạo khóa học. Vui lòng thử lại.'); return; }
+    auditLog(profile?.id, AUDIT_ACTIONS.CLASS_CREATE, `Tạo khóa học mới: ${form.name}`, { code: form.code });
+    sendNotification(profile?.id, 'Tạo khóa học thành công', `Khóa học "${form.name}" đã được tạo.`, 'CLASS_JOIN');
     onCreated?.(data);
     setForm({ name: '', subject: '', semester: '', grade_level: '', code: '' });
     onClose();
@@ -87,6 +91,8 @@ const CreateClassModal = ({ open, onClose, onCreated, courseId }) => {
     });
     setSaving(false);
     if (err) { setError('Không thể tạo lớp học. Vui lòng thử lại.'); return; }
+    auditLog(profile?.id, AUDIT_ACTIONS.CLASS_CREATE, `Tạo lớp học mới: ${form.name}`, { code: form.code });
+    sendNotification(profile?.id, 'Tạo lớp học thành công', `Lớp ${form.name} đã được thêm vào danh sách lớp của Quý thầy/cô.`, 'CLASS_JOIN');
     onCreated?.(data);
     setForm({ name: '', code: '', academic_year: '', max_students: 50 });
     onClose();

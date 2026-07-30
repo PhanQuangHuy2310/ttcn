@@ -12,6 +12,8 @@ import {
   Input, Select, SearchInput, FilterTabs, Table, Th, Td,
 } from '../../components/ui';
 import { usersService } from '../../services/supabaseService';
+import { auditLog, AUDIT_ACTIONS } from '../../utils/auditLog';
+import { sendNotification } from '../../utils/notification';
 
 const ROLE_OPTS = [
   { value: 'ALL',     label: 'Tất cả' },
@@ -124,7 +126,11 @@ const UserManagement = () => {
     setDeleting(true);
     const { error: err } = await usersService.deleteUser(confirmId);
     if (err) setError('Không thể xóa người dùng.');
-    else setUsers(prev => prev.filter(u => u.id !== confirmId));
+    else {
+      setUsers(prev => prev.filter(u => u.id !== confirmId));
+      auditLog(profile?.id, AUDIT_ACTIONS.USER_DELETE, `Xóa tài khoản người dùng ID ${confirmId}`);
+      sendNotification(profile?.id, 'Xóa tài khoản', `Người dùng ID ${confirmId} đã bị xóa khỏi hệ thống.`, 'SYSTEM');
+    }
     setDeleting(false);
     setConfirmId(null);
   };
@@ -146,6 +152,8 @@ const UserManagement = () => {
     } else {
       // Cập nhật local state để UI phản chiếu thay đổi ngay
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: newActive, status: newStatus } : u));
+      auditLog(profile?.id, AUDIT_ACTIONS.USER_UPDATE, `${newActive ? 'Kích hoạt' : 'Vô hiệu hóa'} tài khoản ${user.full_name || user.email}`);
+      sendNotification(profile?.id, 'Cập nhật tài khoản', `Tài khoản ${user.full_name || user.email} chuyển sang ${newActive ? 'Hoạt động' : 'Đã khóa'}.`, 'SYSTEM');
     }
   };
 
@@ -270,6 +278,8 @@ const UserManagement = () => {
         onClose={() => setCreateOpen(false)}
         onCreated={newUser => {
           setCreateOpen(false);
+          auditLog(profile?.id, AUDIT_ACTIONS.USER_CREATE, `Tạo tài khoản mới: ${newUser.email} (${newUser.role})`);
+          sendNotification(profile?.id, 'Thêm người dùng mới', `Đã tạo tài khoản ${newUser.full_name} (${newUser.email}).`, 'SYSTEM');
           load(); // Refresh list
         }}
       />

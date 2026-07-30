@@ -3,6 +3,8 @@
 
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { supabase } from '../../lib/supabase';
+import { auditLog, AUDIT_ACTIONS } from '../../utils/auditLog';
+import { sendNotification } from '../../utils/notification';
 
 // ── Định nghĩa kiểu dữ liệu (Types) ─────────────────────────────
 
@@ -77,6 +79,8 @@ export const loginThunk = createAsyncThunk(
     }
     
     // Trả về dữ liệu profile để tự động cập nhật vào Redux State (fulfilled)
+    auditLog(profile.id, AUDIT_ACTIONS.LOGIN, `Đăng nhập vào hệ thống (${profile.role})`, { email });
+    sendNotification(profile.id, 'Đăng nhập thành công', `Chào mừng ${profile.full_name || email} quay trở lại hệ thống DHDedu.`, 'SYSTEM');
     return profile as Profile;
   }
 );

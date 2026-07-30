@@ -9,11 +9,12 @@ import { useNotifications } from '../hooks/useNotifications';
 import { timeAgo } from './ui';
 
 const NOTIF_ICONS = {
-  EXAM_OPEN:    { icon: 'quiz',              color: 'text-purple-600', bg: 'bg-purple-50' },
-  EXAM_GRADED:  { icon: 'grade',             color: 'text-green-600',  bg: 'bg-green-50'  },
-  CLASS_JOIN:   { icon: 'group_add',         color: 'text-blue-600',   bg: 'bg-blue-50'   },
-  MATERIAL:     { icon: 'folder_open',       color: 'text-orange-600', bg: 'bg-orange-50' },
-  SYSTEM:       { icon: 'notifications',     color: 'text-slate-600',  bg: 'bg-slate-100' },
+  EXAM_OPEN:    { icon: 'quiz',                 color: 'text-purple-600', bg: 'bg-purple-50' },
+  EXAM_GRADED:  { icon: 'grade',                color: 'text-green-600',  bg: 'bg-green-50'  },
+  CLASS_JOIN:   { icon: 'group_add',            color: 'text-blue-600',   bg: 'bg-blue-50'   },
+  MATERIAL:     { icon: 'folder_open',          color: 'text-orange-600', bg: 'bg-orange-50' },
+  SUBMISSION:   { icon: 'assignment_turned_in', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  SYSTEM:       { icon: 'notifications',        color: 'text-slate-600',  bg: 'bg-slate-100' },
 };
 
 const NotificationBell = () => {
@@ -35,7 +36,8 @@ const NotificationBell = () => {
 
   const handleClick = async (notif) => {
     if (!notif.read_status) await markRead(notif.id);
-    if (notif.link) window.location.href = notif.link;
+    const targetUrl = notif.action_url || notif.link;
+    if (targetUrl) window.location.href = targetUrl;
   };
 
   return (
@@ -106,8 +108,8 @@ const NotificationBell = () => {
                       <p className={`text-xs leading-snug ${!notif.read_status ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
                         {notif.title}
                       </p>
-                      {notif.body && (
-                        <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{notif.body}</p>
+                      {(notif.message || notif.body) && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{notif.message || notif.body}</p>
                       )}
                       <p className="text-[10px] text-slate-300 mt-1">{timeAgo(notif.created_at)}</p>
                     </div>

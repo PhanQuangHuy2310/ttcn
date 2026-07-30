@@ -774,6 +774,13 @@ export const settingsService = {
 // ================= NOTIFICATIONS =================
 
 export const notificationsService = {
+  create: (payload: any) =>
+    run(
+      supabase
+        .from(SUPABASE_TABLES.NOTIFICATIONS)
+        .insert(payload)
+    ),
+
   getForUser: (userId: string) =>
     run(
       supabase

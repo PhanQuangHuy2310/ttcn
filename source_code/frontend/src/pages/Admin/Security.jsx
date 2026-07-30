@@ -12,19 +12,27 @@ import { auditLogsService } from '../../services/supabaseService';
 import { useDebounce, usePagination } from '../../hooks/useDebounce';
 
 const ACTION_ICONS = {
-  LOGIN:           { icon: 'login',         color: 'text-green-600',  bg: 'bg-green-50'  },
-  LOGOUT:          { icon: 'logout',        color: 'text-slate-500',  bg: 'bg-slate-100' },
-  EXAM_START:      { icon: 'quiz',          color: 'text-purple-600', bg: 'bg-purple-50' },
-  EXAM_SUBMIT:     { icon: 'task_alt',      color: 'text-blue-600',   bg: 'bg-blue-50'   },
-  EXAM_CREATE:     { icon: 'add_circle',    color: 'text-cyan-600',   bg: 'bg-cyan-50'   },
-  EXAM_PUBLISH:    { icon: 'publish',       color: 'text-green-600',  bg: 'bg-green-50'  },
-  EXAM_DELETE:     { icon: 'delete',        color: 'text-red-600',    bg: 'bg-red-50'    },
-  USER_CREATE:     { icon: 'person_add',    color: 'text-blue-600',   bg: 'bg-blue-50'   },
-  USER_DELETE:     { icon: 'person_remove', color: 'text-red-600',    bg: 'bg-red-50'    },
-  USER_DEACTIVATE: { icon: 'block',         color: 'text-orange-600', bg: 'bg-orange-50' },
-  CLASS_JOIN:      { icon: 'group_add',     color: 'text-teal-600',   bg: 'bg-teal-50'   },
-  MATERIAL_UPLOAD: { icon: 'upload',        color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  ESSAY_GRADED:    { icon: 'grade',         color: 'text-amber-600',  bg: 'bg-amber-50'  },
+  LOGIN:           { icon: 'login',           color: 'text-green-600',   bg: 'bg-green-50'   },
+  LOGOUT:          { icon: 'logout',          color: 'text-slate-500',   bg: 'bg-slate-100'  },
+  START_EXAM:      { icon: 'quiz',            color: 'text-purple-600',  bg: 'bg-purple-50'  },
+  SUBMIT_EXAM:     { icon: 'task_alt',        color: 'text-blue-600',    bg: 'bg-blue-50'    },
+  CREATE_EXAM:     { icon: 'add_circle',      color: 'text-cyan-600',    bg: 'bg-cyan-50'    },
+  UPDATE_EXAM:     { icon: 'edit',            color: 'text-indigo-600',  bg: 'bg-indigo-50'  },
+  DELETE_EXAM:     { icon: 'delete',          color: 'text-red-600',     bg: 'bg-red-50'     },
+  CREATE_USER:     { icon: 'person_add',      color: 'text-blue-600',    bg: 'bg-blue-50'    },
+  UPDATE_USER:     { icon: 'manage_accounts', color: 'text-orange-600',  bg: 'bg-orange-50'  },
+  DELETE_USER:     { icon: 'person_remove',   color: 'text-red-600',     bg: 'bg-red-50'     },
+  CREATE_CLASS:    { icon: 'group_add',       color: 'text-teal-600',    bg: 'bg-teal-50'    },
+  UPDATE_CLASS:    { icon: 'class',           color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  UPLOAD_MATERIAL: { icon: 'upload',          color: 'text-indigo-600',  bg: 'bg-indigo-50'  },
+  GRADE_SUBMISSION:{ icon: 'grade',           color: 'text-amber-600',   bg: 'bg-amber-50'   },
+  // Backward compatibility
+  EXAM_START:      { icon: 'quiz',            color: 'text-purple-600',  bg: 'bg-purple-50'  },
+  EXAM_SUBMIT:     { icon: 'task_alt',        color: 'text-blue-600',    bg: 'bg-blue-50'    },
+  EXAM_CREATE:     { icon: 'add_circle',      color: 'text-cyan-600',    bg: 'bg-cyan-50'    },
+  USER_CREATE:     { icon: 'person_add',      color: 'text-blue-600',    bg: 'bg-blue-50'    },
+  USER_DELETE:     { icon: 'person_remove',   color: 'text-red-600',     bg: 'bg-red-50'     },
+  CLASS_CREATE:    { icon: 'group_add',       color: 'text-teal-600',    bg: 'bg-teal-50'    },
 };
 
 const DEFAULT_ICON = { icon: 'history_edu', color: 'text-slate-500', bg: 'bg-slate-100' };
@@ -64,8 +72,20 @@ const Security = () => {
     return () => clearInterval(interval);
   }, [load]);
 
+  const isLoginLog = (t) => t?.includes('LOGIN') || t?.includes('LOGOUT') || t?.includes('AUTH');
+  const isExamLog = (t) => t?.includes('EXAM') || t?.includes('QUESTION') || t?.includes('ESSAY') || t?.includes('QUIZ') || t?.includes('SUBMIT') || t?.includes('START');
+  const isUserLog = (t) => t?.includes('USER') || t?.includes('STUDENT') || t?.includes('TEACHER') || t?.includes('ADMIN') || t?.includes('PERSON') || t?.includes('PROFILE');
+  const isClassLog = (t) => t?.includes('CLASS') || t?.includes('COURSE') || t?.includes('GROUP') || t?.includes('MATERIAL');
+
   const filtered = logs.filter(log => {
-    const matchAction = filter === 'ALL' || log.action_type?.startsWith(filter);
+    const t = (log.action_type || '').toUpperCase();
+    const matchAction =
+      filter === 'ALL' ||
+      (filter === 'LOGIN' && isLoginLog(t)) ||
+      (filter === 'EXAM' && isExamLog(t)) ||
+      (filter === 'USER' && isUserLog(t)) ||
+      (filter === 'CLASS' && isClassLog(t));
+
     const q = debouncedSearch.toLowerCase();
     const matchSearch = !q
       || log.description?.toLowerCase().includes(q)
@@ -76,10 +96,10 @@ const Security = () => {
 
   const filterCounts = {
     ALL:   logs.length,
-    LOGIN: logs.filter(l => l.action_type?.startsWith('LOGIN') || l.action_type?.startsWith('LOGOUT')).length,
-    EXAM:  logs.filter(l => l.action_type?.startsWith('EXAM')).length,
-    USER:  logs.filter(l => l.action_type?.startsWith('USER')).length,
-    CLASS: logs.filter(l => l.action_type?.startsWith('CLASS')).length,
+    LOGIN: logs.filter(l => isLoginLog((l.action_type || '').toUpperCase())).length,
+    EXAM:  logs.filter(l => isExamLog((l.action_type || '').toUpperCase())).length,
+    USER:  logs.filter(l => isUserLog((l.action_type || '').toUpperCase())).length,
+    CLASS: logs.filter(l => isClassLog((l.action_type || '').toUpperCase())).length,
   };
 
   const pagination = usePagination(filtered, 25);
